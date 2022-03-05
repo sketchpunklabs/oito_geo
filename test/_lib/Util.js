@@ -25,12 +25,12 @@ export default class Util{
         const bGeo = new THREE.BufferGeometry();
         bGeo.setAttribute( "position",  new THREE.BufferAttribute( new Float32Array( verts ), 3 ) );
 
-        if( idx )  bGeo.setIndex( idx );
-        if( norm ) bGeo.setAttribute( "normal",    new THREE.BufferAttribute( new Float32Array( norm ), 3 ) );
-        if( uv )   bGeo.setAttribute( "uv",        new THREE.BufferAttribute( new Float32Array( uv ), 2 ) );
+        if( idx && idx.length > 0 )   bGeo.setIndex( idx );
+        if( norm && norm.length > 0 ) bGeo.setAttribute( "normal",    new THREE.BufferAttribute( new Float32Array( norm ), 3 ) );
+        if( uv && uv.length > 0 )     bGeo.setAttribute( "uv",        new THREE.BufferAttribute( new Float32Array( uv ), 2 ) );
 
         //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        mat = mat || new THREE.MeshPhongMaterial( { color:0x00ffff, side:THREE.DoubleSide } );
+        mat = mat || new THREE.MeshPhongMaterial( { color:0x009999 } ); // ,side:THREE.DoubleSide
         const mesh = new THREE.Mesh( bGeo, mat );
 
         if( wireFrame ){
