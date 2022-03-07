@@ -15,8 +15,8 @@ let Debug   = {};
 let Ref     = {};
 
 function onRender( dt, et ){
-    Ref.mat.uniforms.Clock.value = et;
-    Ref.mat.uniforms.CamPos.value = App.camera.position.toArray();
+    Ref.mat.uniforms.Clock.value    = et;
+    Ref.mat.uniforms.CamPos.value   = App.camera.position.toArray();
 }
 
 window.addEventListener( "load", async _=>{
@@ -46,11 +46,61 @@ window.addEventListener( "load", async _=>{
 
 //#region LOREM
 
+// https://www.shadertoy.com/view/MdXyzX
+// https://github.com/spite/genuary-2022/blob/main/20/main.js
+
+/*
+   seed: { value: seed },
+    time: { value: 0 },
+    phase: { value: 6 },
+    speed: { value: 20 },
+    weight: { value: 1 },
+
+
+
+      if (f === 0) {
+    ssao.shader.uniforms.blockiness.value = Math.round(randomInRange(30, 50));
+  } else if (f === 1) {
+    ssao.shader.uniforms.blockiness.value = Math.round(randomInRange(50, 100));
+  } else if (f == 2) {
+    ssao.shader.uniforms.blockiness.value = Math.round(
+      randomInRange(100, 2000)
+    );
+  } else {
+    ssao.shader.uniforms.blockiness.value = Math.round(
+      randomInRange(200, 10000)
+    );
+
+    float h = texture(heightMap, vuv + .5 / size).r;
+    vColor= round(vec3(h) * blockiness)/blockiness;
+    h = round(h*blockiness)/blockiness;
+    h /= 5.;
+    pp.y += h;
+
+
+    #define ITERATIONS_RAYMARCH 13
+#define ITERATIONS_NORMAL 48
+h = getwaves(pos.xz * 0.1, ITERATIONS_RAYMARCH) * depth - depth;
+
+float waterdepth = 2.1;
+    vec3 normal(vec2 pos, float e, float depth){
+        vec2 ex = vec2(e, 0);
+        H = getwaves(pos.xy * 0.1, ITERATIONS_NORMAL) * depth;
+        vec3 a = vec3(pos.x, H, pos.y);
+        return normalize(cross(normalize(a-vec3(pos.x - e, getwaves(pos.xy * 0.1 - ex.xy * 0.1, ITERATIONS_NORMAL) * depth, pos.y)), 
+            normalize(a-vec3(pos.x, getwaves(pos.xy * 0.1 + ex.yx * 0.1, ITERATIONS_NORMAL) * depth, pos.y + e))));
+    }
+
+*/
+
 function CustomMaterial(){
     return new THREE.RawShaderMaterial({
     depthTest       : true,
     transparent 	: false, 
     uniforms        : { 
+        Clock       : { value : 0 },
+        CamPos      : { value : [0,1,0] },
+
         Waves       : { value : new Float32Array( [ 0.2,0.7,0.02,20,  0,1,0.015,15,  -0.5,-0.5,0.01,5, ]) },
         WaveCnt     : { value : 3 },
         WaveSpeed   : { value : 1 },
@@ -58,8 +108,7 @@ function CustomMaterial(){
         GridSize    : { value : 2 },
         GridRes     : { value : 2 },
         GridHeight  : { value : 1 },
-        Clock       : { value : 0 },
-        CamPos      : { value : [0,1,0] },
+
     },
     vertexShader    : `#version 300 es
     in vec3 position;
@@ -70,56 +119,84 @@ function CustomMaterial(){
     uniform mat4 viewMatrix;
     uniform mat4 projectionMatrix;
     
+    uniform float Clock;
+
     /////////////////////////////////////////////////////////////////
-    const float PI_2	= 6.283185307179586;
+    
+    #define DRAG_MULT 0.048
 
-    uniform     float   Clock;
+    // uniform float seed;
+    // uniform float time;
+    // uniform float phase;
+    // uniform float speed;
+    // uniform float weight;
 
-    uniform 	vec4	Waves[3];
-    uniform 	int 	WaveCnt;
-    uniform		float 	WaveSpeed;
-    uniform 	int 	WaveXZ;
-    uniform     float   GridSize;
-    uniform     float   GridRes;
+    const float seed   = 0.1234;
+    const float phase  = 6.0;
+    const float speed  = 3.0;
+    const float weight = 1.0;
 
-    // https://catlikecoding.com/unity/tutorials/flow/waves/
-    // XY : norm( Dir.xy ), Z : Steepness( 0->1 ), W : WaveLength( PI2 / n )
-    vec3 gerstnerWave( vec2 dir, float steepness, float wavelength, vec2 pnt, float time, out vec3 tangent, out vec3 binormal ){
-        float k = PI_2 / wavelength;	                // Phase Increment
-        float c = sqrt( 9.8 / k );	                    // Phase Speed. Higher the wave, the faster it moves, Gravity Constant
-        float f = k * ( dot( dir, pnt ) - c * time );   // Frequency - Specific time in Phase : PhaseInc * ( Angle - PhaseSpeed * Time )
-        float a = steepness / k;		                // Amptitude, Steep=1, app is at max where mesh will start to loop onto self.
-        
-        // cache results for multi reuse.
-        float sin_f  = sin( f );
-        float cos_f  = cos( f );
-        float acos_f = a * cos_f;
-        float scos_f = steepness * cos_f;
-        float ssin_f = steepness * sin_f;
+    const float Height      = 1.0;
+    const float GridFreq    = 0.03;
+    const int iteration     = 20;
+    
+    // Original : https://www.shadertoy.com/view/MdXyzX
+    vec2 wavedx(vec2 position, vec2 direction, float speed, float frequency, float timeshift) {
+        float x     = dot( direction, position ) * frequency + timeshift * speed;
+        float wave  = exp(sin(x) - 1.0);
+        float dx    = wave * cos(x);
+        return vec2( wave, -dx );
+    }
 
-        /*====================================
-        Must Init outside function as
-        vec3 tangent = vec3( 1.0, 0.0, 0.0 );
-        vec3 binormal = vec3( 0.0, 0.0, 1.0 );
-        normal  is normalize(cross(binormal, tangent)); */
+    // VoR Notes : This seems to work like Fractal Browning Motion
+    // - Iterations is like Octave, Smoother closer to 1, rougher the higher the value.
+    // - Phase is Frequency
+    // - Weight seems to act like Amplitude
+    float getWaves( vec2 position, int iterations, float time ){
+        float iter      = 0.0;
+        float w         = 0.0;
+        float ws        = 0.0;
+        float cWeight   = weight;
+        float cSpeed    = speed;
+        float cPhase    = phase;
 
-        tangent += vec3(
-            -dir.x * dir.x * ssin_f,
-             dir.x * scos_f,
-            -dir.x * dir.y * ssin_f
-        );
-        binormal += vec3(
-            -dir.x * dir.y * ssin_f,
-             dir.y * scos_f,
-            -dir.y * dir.y * ssin_f
-        );
-        
-        return vec3( 
-            dir.x * acos_f, 
-            a * sin_f,       
-            dir.y * acos_f
+        for( int i=0; i < iterations; i++ ){
+            vec2 p      = vec2( sin(iter), cos(iter) );
+            vec2 res    = wavedx( position, p, cSpeed, cPhase, time);
+            
+            position    += p * res.y * cWeight * DRAG_MULT;
+            w           += res.x * cWeight;         // Increment Size?
+            ws          += cWeight;                 // Total Size?
+
+            iter        += 12.0;                    // Effects overall wave shape, Lower numbers make it less chaotic 
+            
+            cWeight     = mix( cWeight, 0.0, 0.2 ); // Decrease amplitude with a gain of 1/4
+            cPhase      *= 1.18;                    // Increase Frequency by lacunarity 
+            cSpeed      *= 1.07;
+        }
+    
+        return w / ws;                              // normalizing the final value?
+    }
+
+    vec3 getWavesNorm( float h, vec2 grid, float e, int interation, float time, float depth ){
+        vec3 pntA = vec3( grid.x, h, grid.y );
+        vec3 pntB = pntA + vec3( e, 0.0, 0.0 ); // Left Noise
+        vec3 pntC = pntA + vec3( 0.0, 0.0, e ); // Forward Noise
+
+        pntB.y = getWaves( pntB.xz, interation, time ) * depth;
+        pntC.y = getWaves( pntC.xz, interation, time ) * depth;
+
+        return normalize(
+            cross( pntC - pntA, pntB - pntA )
         );
     }
+
+    /////////////////////////////////////////////////////////////////
+    
+    uniform float GridSize;
+    uniform float GridRes;
+
+    const float FLOOR = 0.001;
 
     vec2 gridCenterCoord( vec2 p ){
         float inc = GridSize / GridRes;
@@ -127,42 +204,31 @@ function CustomMaterial(){
         p = floor( p / vec2( inc ) );   
         return p;
     }
-    
-    /////////////////////////////////////////////////////////////////
-    const float FLOOR = 0.001;
 
     out vec3 fragNorm;
     out vec3 fragWPos;
+
+    
+
+    /////////////////////////////////////////////////////////////////
 
     void main(){
         vec3 pos = position;
         fragNorm = normal;
 
         if( pos.y > FLOOR ){
-            vec2    grid        = gridCenterCoord( pos.xz );
-            vec3    offset      = vec3( 0.0 );
-            vec3    tangent     = vec3( 1.0, 0.0, 0.0 ); // Normal is Up, So tangent is Right
-            vec3    binormal    = vec3( 0.0, 0.0, 1.0 ); // ... and Binormal is Forward
-            float   time        = Clock * WaveSpeed;    
-
-            if( WaveCnt > 0 ) offset += gerstnerWave( normalize(Waves[0].xy), Waves[0].z, Waves[0].w, grid, time, tangent, binormal );
-            if( WaveCnt > 1 ) offset += gerstnerWave( normalize(Waves[1].xy), Waves[1].z, Waves[1].w, grid, time, tangent, binormal );
-            if( WaveCnt > 2 ) offset += gerstnerWave( normalize(Waves[2].xy), Waves[2].z, Waves[2].w, grid, time, tangent, binormal );
-            
-            if( WaveXZ == 1 ){
-                offset.x = 0.0;
-                offset.z = 0.0;
-            }else{
-                if( grid.x < 1.0 || grid.x >= GridRes ) offset.x = 0.0;
-                if( grid.y < 1.0 || grid.y >= GridRes ) offset.z = 0.0;
-            }
-
-            pos += offset;
+            vec2 grid   = gridCenterCoord( pos.xz );
+            pos.y       = Height * getWaves( grid * GridFreq, iteration, Clock );
 
             // Only Apply Wave Normals on top face, so if the normal direction is up, has to be top face.
             if( normal.x < 0.001 && normal.z < 0.001 && normal.y > 0.9 ){
-                fragNorm = normalize( cross( binormal, tangent ) );
+                fragNorm = getWavesNorm( pos.y, grid * GridFreq, 0.001, iteration, Clock, Height );
             }
+            
+            /* Blockness, is just a Snap from what I can tell
+            float Snap = 0.1;
+            pos.y      = floor( pos.y / Snap ) * Snap;
+            */
         }
 
         vec4 wPos   = modelMatrix * vec4( pos, 1.0 );
