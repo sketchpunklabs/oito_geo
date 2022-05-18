@@ -2,7 +2,7 @@
 import Util from "../util/Util.js";
 
 export default class Grid{
-    static get( width=1, height=1, xCells=2, yCells=2, fromCenter=true ) : TGeo{
+    static get( width=1, height=1, xCells=2, yCells=2, fromCenter=true, isVertical=false ) : TGeo{
         const rtn : TGeo = {
             vertices : [],
             indices  : [],
@@ -10,7 +10,7 @@ export default class Grid{
             normals  : [],
         };
 
-        Util.gridVertices( rtn.vertices, width, height, xCells, yCells, fromCenter );
+        Util.gridVertices( rtn.vertices, width, height, xCells, yCells, fromCenter, isVertical );
         Util.gridIndices( rtn.indices, xCells+1, yCells+1, 0, false, true );
         Util.gridTexcoord( rtn.texcoord, xCells+1, yCells+1 );
         repeatVec( rtn.normals, rtn.vertices.length / 3, 0, 1, 0 );
@@ -18,7 +18,7 @@ export default class Grid{
         return rtn;
     }
 
-    static getAlt( width=1, height=1, xCells=2, yCells=2, fromCenter=true ) : TGeo{
+    static getAlt( width=1, height=1, xCells=2, yCells=2, fromCenter=true, isVertical=false ) : TGeo{
         const rtn : TGeo = {
             vertices : [],
             indices  : [],
@@ -26,7 +26,7 @@ export default class Grid{
             normals  : [],
         };
 
-        Util.gridVertices( rtn.vertices, width, height, xCells, yCells, fromCenter );
+        Util.gridVertices( rtn.vertices, width, height, xCells, yCells, fromCenter, isVertical );
         Util.gridAltIndices( rtn.indices, xCells+1, yCells+1, 0, true );
         Util.gridTexcoord( rtn.texcoord, xCells+1, yCells+1 );
         repeatVec( rtn.normals, rtn.vertices.length / 3, 0, 1, 0 );

@@ -20,7 +20,7 @@ window.addEventListener( "load", async _=>{
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     const sGeo = Quad.get( 2, 2, false );
-    App.add( Util.mesh( sGeo.vertices, sGeo.indices, sGeo.normals, null, null, true ) );
+    App.add( Util.mesh( sGeo.vertices, sGeo.indices, sGeo.normals, sGeo.texcoord, null, true ) );
   
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     App.render();

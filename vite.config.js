@@ -38,6 +38,10 @@ export default ( { command, mode } ) => {
                 rollupOptions   : { input: getHtmlPaths() },
             },
             publicDir   : path.join( __dirname, "examples", "public" ),
+            server:{
+                port : 3010, 
+                open : '/test/_000_template.html',
+            },
         };
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -55,7 +59,7 @@ export default ( { command, mode } ) => {
                 rollupOptions   : {
                     external    : [ "three", /^three\// ],
                 }
-            },
+            }
         };
     }
 };

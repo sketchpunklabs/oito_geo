@@ -1,0 +1,5 @@
+https://catlikecoding.com/unity/tutorials/procedural-meshes/seamless-cube-sphere/
+
+https://catlikecoding.com/unity/tutorials/procedural-meshes/octasphere/
+
+https://www.robscanlon.com/hexasphere/

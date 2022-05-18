@@ -217,23 +217,31 @@ class Util{
 		}
 	}
 
-    static gridVertices( out: Array<number>, width=1, height=1, xCells=2, yCells=2, useCenter=false ): void{
-        const   x_inc   = width / xCells,
-                y_inc   = height / yCells;
+    static gridVertices( out: Array<number>, width=1, height=1, xCells=2, yCells=2, useCenter=false, isVertical=false ): void{
+        const   x_inc   = width / xCells;
+        let     y_inc   = height / yCells;
         let     ox      = 0,
                 oz      = 0,
                 x, z, xi, yi;
     
         if( useCenter ){
-            ox = -width * 0.5;
-            oz = -height * 0.5;
+            if( !isVertical ){
+                ox    = -width * 0.5;
+                oz    = -height * 0.5;
+            }else{
+                ox    = -width * 0.5;
+                oz    = height * 0.5;
+                y_inc = -y_inc;
+            }
         }
     
         for( yi=0; yi <= yCells; yi++ ){
             z = yi * y_inc;
             for( xi=0; xi <= xCells; xi++ ){
                 x = xi * x_inc;
-                out.push( x+ox, 0.0, z+oz );
+                
+                if( !isVertical ) out.push( x+ox, 0.0, z+oz );
+                else              out.push( x+ox, z+oz, 0.0 );  
             }
         }
     }
@@ -272,6 +280,10 @@ class Util{
             yt = 1 - ( y / yLen );
             for( x=0; x <= xLen; x++ ) out.push( x / xLen, yt );
         }
+
+        // TODO, Coords my be backwards, this might be the correct setup
+        // yt = ( y / yLen );
+        // for( x=0; x <= xLen; x++ ) out.push( 1 - x / xLen, yt );
     }
     // #endregion ////////////////////////////////////////////////////////////////////////////////
 
