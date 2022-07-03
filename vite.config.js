@@ -51,13 +51,13 @@ export default ( { command, mode } ) => {
                 minify          : false,
 
                 lib             : {
-                    entry   : path.resolve( __dirname, "src/oito_geo.ts" ),
+                    entry   : path.resolve( __dirname, "src/index.ts" ),
                     name    : "oito_geo",
                     formats : [ "es", "cjs" ],
                 },
 
                 rollupOptions   : {
-                    external    : [ "three", /^three\// ],
+                    external    : [ "oito", /^oito\// ],
                 }
             }
         };

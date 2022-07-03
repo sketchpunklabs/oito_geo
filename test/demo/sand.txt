@@ -1,0 +1,105 @@
+https://www.shadertoy.com/view/ldlcRf
+https://archive.org/details/GDC2013Edwards
+
+#if COLOR_SCHEME == 1
+const float _FogMul = -0.00800 ;
+const float _FogPow = 1.00000 ;
+const float _IncorrectGammaCorrect = 1.00000 ;
+const vec3 _LightDir = vec3(-0.23047, 0.87328, -0.42927) ;
+const float _Brightness = 0.40000 ;
+const float _Contrast = 0.83000 ;
+const float _Saturation = 1.21000 ;
+const vec3 _SunStar = vec3(14.7, 1.47, 0.1) ;
+const float _SunSize = 26.00000 ;
+const float _SunScale = 15.00000 ;
+const float _ExposureOffset = 11.10000 ;
+const float _ExposurePower = 0.52000 ;
+const float _ExposureStrength = 0.09000 ;
+const RGB _SunColor = RGB(1, 0.95441, 0.77206) ;
+const RGB _Zenith = RGB(0.77941, 0.5898, 0.41263) ;
+const float _ZenithFallOff = 2.36000 ;
+const RGB _Nadir = RGB(1, 0.93103, 0) ;
+const float _NadirFallOff = 1.91000 ;
+const RGB _Horizon = RGB(0.96324, 0.80163, 0.38954) ;
+const vec3 _CharacterAOParams = vec3(0.03, 7.36, 0) ;
+const RGB _CharacterMainColor = RGB(0.60294, 0.1515, 0.062067) ;
+const RGB _CharacterTerrainCol = RGB(0.35294, 0.16016, 0.12197) ;
+const RGB _CharacterCloakDarkColor = RGB(0.25735, 0.028557, 0.0056769) ;
+const RGB _CharacterYellowColor = RGB(0.88971, 0.34975, 0) ;
+const RGB _CharacterWhiteColor = RGB(0.9928, 1, 0.47794) ;
+const float _CharacterBloomScale = 0.70000 ;
+const float _CharacterDiffScale = 1.50000 ;
+const float _CharacterFreScale = 1.77000 ;
+const float _CharacterFrePower = 3.84000 ;
+const float _CharacterFogScale = 4.55000 ;
+const float _CloudTransparencyMul = 0.90000 ;
+const RGB _CloudCol = RGB(1, 0.84926, 0.69853) ;
+const RGB _BackCloudCol = RGB(0.66176, 0.64807, 0.62284) ;
+const RGB _CloudSpecCol = RGB(0.17647, 0.062284, 0.062284) ;
+const RGB _BackCloudSpecCol = RGB(0.11029, 0.05193, 0.020275) ;
+const float _CloudFogStrength = 0.50000 ;
+const RGB _TombMainColor = RGB(0.64706, 0.38039, 0.27451) ;
+const RGB _TombScarfColor = RGB(0.38971, 0.10029, 0.10029) ;
+const RGB _PyramidCol = RGB(0.69853, 0.40389, 0.22086) ;
+const vec2 _PyramidHeightFog = vec2(38.66, 1.3) ;
+const RGB _TerrainCol = RGB(0.56618, 0.29249, 0.1915) ;
+const RGB _TerrainSpecColor = RGB(1, 0.77637, 0.53676) ;
+const float _TerrainSpecPower = 55.35000 ;
+const float _TerrainSpecStrength = 1.56000 ;
+const float _TerrainGlitterRep = 7.00000 ;
+const float _TerrainGlitterPower = 3.20000 ;
+const RGB _TerrainRimColor = RGB(0.16176, 0.13131, 0.098724) ;
+const float _TerrainRimPower = 5.59000 ;
+const float _TerrainRimStrength = 1.61000 ;
+const float _TerrainRimSpecPower = 2.88000 ;
+const float _TerrainFogPower = 2.11000 ;
+const vec4 _TerrainShadowParams = vec4(0.12, 5.2, 88.7, 0.28) ;
+const vec3 _TerrainAOParams = vec3(0.01, 0.02, 2) ;
+const RGB _TerrainShadowColor = RGB(0.48529, 0.13282, 0) ;
+const RGB _TerrainDistanceShadowColor = RGB(0.70588, 0.4644, 0.36851) ;
+const float _TerrainDistanceShadowPower = 0.11000 ;
+const RGB _FlyingHelperMainColor = RGB(0.85294, 0.11759, 0.012543) ;
+const RGB _FlyingHelperCloakDarkColor = RGB(1, 0.090909, 0) ;
+const RGB _FlyingHelperYellowColor = RGB(1, 0.3931, 0) ;
+const RGB _FlyingHelperWhiteColor = RGB(1, 1, 1) ;
+const float _FlyingHelperBloomScale = 2.61000 ;
+const float _FlyingHelperFrePower = 1.00000 ;
+const float _FlyingHelperFreScale = 0.85000 ;
+const float _FlyingHelperFogScale = 1.75000 ;
+#endif
+
+if( TEST_MAT_LESS (m, MAT_TERRAIN_TRAIL ) )
+	{
+		float shadow = softShadow( pos - (rd * 0.01), _LightDir.xyz, _TerrainShadowParams.x, _TerrainShadowParams.y, _TerrainShadowParams.z);
+		shadow		 = clamp( shadow + _TerrainShadowParams.w, 0.0, 1.0 );
+
+		vec3 shadowCol = mix( shadow * _TerrainShadowColor, _TerrainDistanceShadowColor, pow(skyFog, _TerrainFogPower * _TerrainDistanceShadowPower) );
+
+		// Strong rim lighting
+		float rim	= (1.0 - saturate(dot( nor , -rd ))); 
+		rim			= saturate(pow( rim, _TerrainRimPower)) *_TerrainRimStrength ; 
+		vec3 rimColor	= rim * _TerrainRimColor;
+
+		// Specular highlights
+		vec3 ref		= reflect(rd, nor);
+	    vec3 halfDir	= normalize(_LightDir + rd);
+
+	    // The strong ocean specular highlight
+	    float mainSpec = clamp( dot( ref, halfDir ), 0.0, 1.0 );
+	    if ( TEST_MAT_LESS( m, MAT_TERRAIN ) )
+	        mainSpec = pow( mainSpec, _TerrainSpecPower ) * _TerrainSpecStrength * 2.0 ;
+	    else
+	        mainSpec = pow( mainSpec, _TerrainSpecPower ) * _TerrainSpecStrength * 4.0;
+
+	    float textureGlitter  = textureLod(iChannel1,pos.xz * _TerrainGlitterRep, 2.2).x * 1.15;
+	    textureGlitter	= pow(textureGlitter , _TerrainGlitterPower);
+	    mainSpec 		*= textureGlitter;
+
+		// The glitter around terrain, looks decent based on rim value
+	    float rimSpec	= (pow(rim, _TerrainRimSpecPower)) * textureGlitter;
+	    vec3 specColor	= (mainSpec + rimSpec) * _TerrainSpecColor;
+		vec3 terrainCol	= mix( (rimColor + specColor * shadow) + _TerrainCol, skyCol, pow(skyFog, _TerrainFogPower) ) + res.z * 0.2;  
+
+		// maybe add a fake AO from player, just a sphere should do!
+		return mix( shadowCol, terrainCol, shadow );
+	}

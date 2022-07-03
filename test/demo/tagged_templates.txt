@@ -1,0 +1,21 @@
+https://github.com/toji/wgsl-preprocessor
+
+function tag(strings, ...values){
+    const sCnt = strings.length;
+    const vCnt = values.length;
+
+    console.log( "STR", strings, 'VAL', values );
+    console.log( "Strings", sCnt, 'Values', vCnt );
+
+    let buf = "";
+    for( let i = 0; i < sCnt; i++ ){
+        buf += strings[ i ];
+        if( i < vCnt ) buf += values[ i ];
+    }
+
+    return buf;
+}
+const woot = 'strWoot';
+const root = 'strRoot';
+const test = tag`OneTwo ${woot} ${woot} Three ${root}`;
+console.log( test );

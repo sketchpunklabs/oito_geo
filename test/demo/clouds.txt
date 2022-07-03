@@ -1,0 +1,199 @@
+https://www.shadertoy.com/view/ldlcRf
+
+
+
+const mat4 _CameraInvViewMatrix = mat4( 1, 0, 0, 1.04, 
+0, 0.9684963, 0.2490279, 2.2, 
+0, 0.2490279, -0.9684963, 18.6, 
+0, 0, 0, 1 ) ;
+const vec3 _CameraFOV = vec3(1.038, 0.78984, -1) ;
+const vec3 _CameraPos = vec3(1.0, 2.2, 18.6) ;
+const vec4 _CameraMovement = vec4(0.15, 0.1, 0.2, 0.25) ;
+
+const vec3 _WindDirection = vec3(-0.27, -0.12, 0) ;
+
+const float _DrawDistance = 70.00000 ;
+const float _MaxSteps = 64.00000 ;
+
+const vec3 _SunPosition = vec3(0.2, 56, -40.1) ;
+const float _CharacterRotation = 0.17000 ;
+const vec3 _CharacterPosition = vec3(0.52, 2.35, 17.6) ;
+const vec3 _CharacterScale = vec3(0.4, 0.53, 0.38) ;
+const float _MainClothRotation = 0.30000 ;
+const vec3 _MainClothScale = vec3(0.3, 0.68, 0.31) ;
+const vec3 _MainClothPosition = vec3(0, -0.12, 0) ;
+const vec3 _MainClothBotCutPos = vec3(0, -0.52, 0) ;
+const vec3 _MainClothDetail = vec3(6, 0.04, 1.3) ;
+const float _HeadScarfRotation = -0.19000 ;
+const vec3 _HeadScarfPosition = vec3(-0.005, -0.16, -0.01) ;
+const vec3 _HeadScarfScale = vec3(0.18, 0.2, 0.03) ;
+const float _HeadRotationX = -0.30000 ;
+const float _HeadRotationY = 0.29000 ;
+const float _HeadRotationZ = 0.00000 ;
+const vec3 _HeadPos = vec3(0, -0.04, 0.01) ;
+const vec3 _LongScarfPos = vec3(0.01, -0.15, 0.09) ;
+const vec3 _LongScarfScale = vec3(0.05, 1.25, 0.001) ;
+const vec4 _LongScarfWindStrength = vec4(0.3, 4.52, 5.2, 0.02) ;
+const float _LongScarfRotX = 1.43000 ;
+const float _LongScarfMaxRad = 1.99000 ;
+const vec3 _FacePosition = vec3(0, -0.01, 0.05) ;
+const vec3 _FaceSize = vec3(0.038, 0.05, 0.03) ;
+const vec3 _UpperLeftLegA = vec3(-0.02, -0.37, 0.01) ;
+const vec3 _UpperLeftLegB = vec3(-0.02, -0.67, -0.059999) ;
+const vec3 _UpperLeftLegParams = vec3(0.026, 1, 1) ;
+const vec3 _LowerLeftLegA = vec3(-0.02, -0.67, -0.059999) ;
+const vec3 _LowerLeftLegB = vec3(-0.02, -0.77, 0.12) ;
+const vec3 _LowerLeftLegParams = vec3(0.028, 0.03, 0.01) ;
+const vec3 _UpperRightLegA = vec3(0.07, -0.5, 0.02) ;
+const vec3 _UpperRightLegB = vec3(0.07, -0.61, 0.09) ;
+const vec3 _UpperRightLegParams = vec3(0.026, 1, 1) ;
+const vec3 _LowerRightLegA = vec3(0.07, -0.61, 0.09) ;
+const vec3 _LowerRightLegB = vec3(0.07, -0.91, 0.22) ;
+const vec3 _LowerRightLegParams = vec3(0.028, 0.03, 0.01) ;
+const vec3 _BodyPos = vec3(0, -0.45, -0.03) ;
+const vec3 _CharacterTrailOffset = vec3(0.72, 0.01, 0.06) ;
+const vec3 _CharacterTrailScale = vec3(0.001, 0, 0.5) ;
+const vec3 _CharacterTrailWave = vec3(1.97, 0, 0.34) ;
+const vec2 _CharacterHeightTerrainMix = vec2(1.95, -30) ;
+const vec3 _CloudNoiseStrength = vec3(0.2, 0.16, 0.1) ;
+const vec3 _FrontCloudsPos = vec3(9.91, 8.6, -12.88) ;
+const vec3 _FrontCloudsOffsetA = vec3(-9.1, 3.04, 0) ;
+const vec3 _FrontCloudsOffsetB = vec3(-2.97, 3.72, -0.05) ;
+const vec3 _FrontCloudParams = vec3(5.02, 3.79, 5) ;
+const vec3 _FrontCloudParamsA = vec3(3.04, 0.16, 2) ;
+const vec3 _FrontCloudParamsB = vec3(1.34, 0.3, 3.15) ;
+const vec3 _BackCloudsPos = vec3(29.99, 13.61, -18.8) ;
+const vec3 _BackCloudsOffsetA = vec3(24.87, -1.49, 0) ;
+const vec3 _BackCloudParams = vec3(7.12, 4.26, 1.68) ;
+const vec3 _BackCloudParamsA = vec3(6.37, 2.23, 2.07) ;
+const vec3 _PlaneParams = vec3(7.64, 10.85, 3.76) ;
+const vec3 _CloudGlobalParams = vec3(0.123, 2.1, 0.5) ;
+const vec3 _CloudBackGlobalParams = vec3(0.16, 1.4, -0.01) ;
+const vec3 _CloudNormalMod = vec3(0.26, -0.13, 1.22) ;
+const float _CloudSpecPower = 24.04000 ;
+const float _CloudPyramidDistance = 0.14500 ;
+const vec3 _TombPosition = vec3(5, 5, 9.28) ;
+const vec3 _TombScale = vec3(0.07, 0.5, 0.006) ;
+const vec3 _TombBevelParams = vec3(0.44, 0.66, 0.01) ;
+const float _TombRepScale = 0.79000 ;
+const vec3 _TombCutOutScale = vec3(0.39, 0.06, -14.92) ;
+const vec3 _TombScarfOffset = vec3(0, 0.46, 0) ;
+const vec3 _TombScarfWindParams = vec3(-1.61, 6, 0.05) ;
+const vec3 _TombScarfScale = vec3(0.03, 0.002, 0.5) ;
+const float _TombScarfRot = -0.88000 ;
+const mat4 _TombScarfMat = mat4( 0.9362437, 0, -0.3513514, 0, 
+0, 1, 0, 0, 
+0.3513514, 0, 0.9362437, 0, 
+0, 0, 0, 1 ) ;
+const vec3 _PyramidPos = vec3(0, 10.9, -50) ;
+const vec3 _PyramidScale = vec3(34.1, 24.9, 18) ;
+const vec3 _PrismScale = vec3(1, 1.9, 1) ;
+const vec3 _PyramidNoisePrams = vec3(1.5, 1, 1) ;
+const vec3 _PrismEyeScale = vec3(0.7, 1.9, 51.5) ;
+const vec3 _PyramidEyeOffset = vec3(2.0, -4.9, 0) ;
+const float _PrismEyeWidth = 5.86000 ;
+const float _TerrainMaxDistance = 30.04000 ;
+const float _SmallDetailStrength = 0.00600 ;
+const vec3 _SmallWaveDetail = vec3(3.19, 16, 6.05) ;
+const vec2 _WindSpeed = vec2(2, 0.6) ;
+const float _MediumDetailStrength = 0.05000 ;
+const vec2 _MediumWaveDetail = vec2(2, 50) ;
+const vec3 _MediumWaveOffset = vec3(0.3, -2, 0.1) ;
+const vec2 _LargeWaveDetail = vec2(0.25, 0.73) ;
+const vec3 _LargeWavePowStre = vec3(0.6, 2.96, -2.08) ;
+const vec3 _LargeWaveOffset = vec3(-3.65, 4.41, -11.64) ;
+const vec3 _FlyingHelperPos = vec3(2.15, 4.68, 14.4) ;
+const vec3 _FlyingHelperScale = vec3(0.25, 0.001, 0.3) ;
+const vec3 _FlyingHelperMovement = vec3(0.44, 1.44, -2.98) ;
+const vec3 _FlyingHelperScarfScale = vec3(0.1, 0.001, 1.5) ;
+const vec3 _FlyingHelperScarfWindParams = vec3(-0.06, 0.31, 0.47) ;
+const vec3 _FlyingHelperScarfWindDetailParams = vec3(3.93, 0.005, -45.32) ;
+const vec3 _FlyingHelperSideScarfOffset = vec3(0.16, -0.01, 0) ;
+const vec3 _FlyingHelperSideScarfScale = vec3(0.06, 0.001, 0.8) ;
+const vec4 _FlyingScarfSideWindParams = vec4(2.46, -1.59, -0.05, 0.21) ;
+
+#define MAT_BACK_CLOUDS 20.0
+#define MAT_FRONT_CLOUDS 21.0
+
+
+//==========================================================================================
+// Clouds
+//==========================================================================================
+float sdCloud( in vec3 pos, vec3 cloudPos, float rad, float spread, float phaseOffset, vec3 globalParams)
+{ 
+	// Clouds are simple. A bunch of spheres with varying phase offset, size and 
+	// frequency values. They are also scaled along the z-Axis so more like circles
+	// than spheres. With additional noise to make them look fluffy. 
+	// While rendering them we "perturb" #SpellCheck the normals to get strong specular
+	// highlights
+
+	// Add noise to the clouds
+	pos += pn( pos ) * _CloudNoiseStrength;
+	pos = pos - cloudPos;
+
+	// Make us 2d-ish - My artists have confirmed me: 2D is COOL!
+	pos.z /= globalParams.x;
+
+	// Repeat the space
+	float repitition = rad * 2.0 + spread;
+	vec3  repSpace = pos - mod( pos - repitition * 0.5, repitition);
+
+	// Create the overall shape to create clouds on
+	pos.y +=  sin(phaseOffset + repSpace.x * 0.23  )  * globalParams.y ;
+
+	// Creates clouds with offset on the main path
+	pos.y +=  sin(phaseOffset + repSpace.x * 0.9 ) * globalParams.z;
+
+	// repeated spheres
+	pos.x = fract( (pos.x + repitition * 0.5) / repitition ) * repitition - repitition * 0.5;
+
+	// return the spheres  
+	float sphere = length(pos)- rad;
+	return sphere * globalParams.x;
+}
+
+vec2 sdClouds( in vec3 pos )
+{
+	// Two layers of clouds. A layer in front of the big pyramid
+    float c1 = sdCloud( pos, _FrontCloudsPos, _FrontCloudParams.x, _FrontCloudParams.y, _FrontCloudParams.z, _CloudGlobalParams );
+    float c2 = sdCloud( pos, _FrontCloudsPos + _FrontCloudsOffsetA, _FrontCloudParamsA.x, _FrontCloudParamsA.y, _FrontCloudParamsA.z, _CloudGlobalParams );
+    float c3 = sdCloud( pos, _FrontCloudsPos + _FrontCloudsOffsetB, _FrontCloudParamsB.x, _FrontCloudParamsB.y, _FrontCloudParamsB.z, _CloudGlobalParams);
+    float frontClouds = min(c3, min(c1, c2));
+
+    // This plane hides the empty spaces between the front cloud spheres. Not needed
+    // for back spheres, they are covered by front spheres
+  	float mainPlane = length(pos.z - _FrontCloudsPos.z) / _CloudGlobalParams.x + (pos.y - _PlaneParams.y  + sin(_PlaneParams.x + pos.x * 0.23 ) * _PlaneParams.z);// - rad;
+  	frontClouds = min(mainPlane * _CloudGlobalParams.x, frontClouds);
+
+	// Second layer behind the big Pyramid
+    float c4 = sdCloud( pos, _BackCloudsPos, _BackCloudParams.x, _BackCloudParams.y, _BackCloudParams.z, _CloudBackGlobalParams );
+    float c5 = sdCloud( pos, _BackCloudsPos + _BackCloudsOffsetA, _BackCloudParamsA.x, _BackCloudParamsA.y, _BackCloudParamsA.z, _CloudBackGlobalParams );
+    float backClouds = min(c4,c5);
+    return min_mat(vec2(frontClouds,MAT_FRONT_CLOUDS), vec2(backClouds,MAT_BACK_CLOUDS));
+}
+
+
+
+	// Clouds
+	if( TEST_MAT_LESS (m, MAT_FRONT_CLOUDS ) )
+	{
+		// Modify the normals so that they create strong specular highlights
+		// towards the top edge of clouds
+		nor				= normalize( nor + _CloudNormalMod);
+		float dotProd	= dot( nor, vec3(1.0,-3.5,1.0) );
+
+		float spec		=  1.0 -  clamp( pow(dotProd, _CloudSpecPower), 0.0, 1.0 );
+		spec 			*= 2.0;
+		vec3 cloudCol	= spec * _CloudSpecCol + _CloudCol;
+
+		// Transparency for mountain
+		if( sdBigMountain( pos + (rd * t * _CloudPyramidDistance)) < 0.2 )
+	 	{
+	 		cloudCol = mix( pyramidCol, cloudCol, _CloudTransparencyMul ); 
+		}
+
+		// Mixing for backdrop mountains. Backdrop mountains take more color from Sky. Foreground mountains
+		// retain their own color values, so I can adjust their darkness
+		vec3 inCloudCol = mix(cloudCol, _BackCloudCol + skyCol * 0.5 + spec * _BackCloudSpecCol, MAT_FRONT_CLOUDS - m);
+		return mix( inCloudCol , skyCol, skyFog * _CloudFogStrength );    
+	}

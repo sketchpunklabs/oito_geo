@@ -19,13 +19,13 @@ class Torus{
         //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         for( j=0; j <= innerSteps; j++ ){
             jt      = j / innerSteps
-            v       = jt * Maths.PI_2;
+            v       = jt * Maths.TAU;
             v_cos   = Math.cos( v );
             v_sin   = Math.sin( v );
 
             for( i=0; i <= outerSteps; i++ ){
                 ti      = i / outerSteps;
-                u       = ti * Maths.PI_2;
+                u       = ti * Maths.TAU;
                 u_cos   = Math.cos( u );
                 u_sin   = Math.sin( u );
 

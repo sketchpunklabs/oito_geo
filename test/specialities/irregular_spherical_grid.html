@@ -1,0 +1,1132 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title></title></head><body>
+<script type="module">
+
+//#region IMPORTS
+import Starter, { THREE }           from '../_lib/Starter.js';
+import Util                         from '../_lib/Util.js';
+import Grid                         from '../../src/primitives/Grid';
+import ShapePointsMesh              from '../_lib/ShapePointsMesh.js';
+import DynLineMesh                  from '../_lib/DynLineMesh.js';
+import PixelFontMesh                from '../_lib/PixelFontMesh.js';
+//import { vec3 }                     from 'oito';
+//#endregion
+
+//#region MAIN
+let App;
+let Debug   = {};
+let Ref     = {};
+
+window.addEventListener( "load", async _=>{
+    App = new Starter( { webgl2:true, grid:true } );
+    App.setCamera( 0, 0, 9, [0,0.0,0] );
+
+    App.add( ( Debug.ln  = new DynLineMesh() ) );
+    App.add( ( Debug.pnt = new ShapePointsMesh() ) );
+    App.add( ( Debug.px  = new PixelFontMesh() ) );
+    Debug.px.setRes( 2, 1 );
+    Debug.px.add( '00' );
+    Debug.px.position.x = -3.5;
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    // //curvedGrid();
+    // const geo = curved_wall();
+    // const mesh = Util.mesh( geo.vertices, geo.indices, geo.normals, geo.texcoord, null, true );
+    // App.add( mesh );
+
+    IrregularSphericalGrid.get();
+
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    App.render();
+});
+//#endregion
+
+const indices = [
+0, 11, 5,   0,  5,  1,   0,  1,  7,   0, 7, 10,   0, 10, 11,
+1,  5, 9,   5, 11,  4,  11, 10,  2,  10, 7,  6,   7,  1,  8,
+3,  9, 4,   3,  4,  2,   3,  2,  6,   3, 6,  8,   3,  8,  9,
+4,  9, 5,   2,  4, 11,   6,  2, 10,   8, 6,  7,   9,  8,  1 ];
+
+const t = ( 1 + Math.sqrt( 5 ) ) / 2;
+const vertices = [
+-1,  t,  0,  1, t, 0,  -1, -t,  0,   1, -t,  0,
+ 0, -1,  t,  0, 1, t,   0, -1, -t,   0,  1, -t,
+ t,  0, -1,  t, 0, 1,  -t,  0, -1,  -t,  0,  1 ];
+
+
+ // Visually see the ray cast, ray cast the vertex then grab all the edges + faces attached, use the center point
+ // of all the faces to represet the "tile shape" but all you do is activate that point, then you fill in the quads
+ // that the point is part of.
+ // https://twitter.com/Calneon/status/1424292736459493378?s=20&t=_INTx0HPCS5EcS5rM1eBbQ
+class IrregularSphericalGrid{
+    static get(){
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        const top = new Topology();
+        for( let i=0; i < indices.length; i+=3 ){
+            let ai = indices[ i+0 ] * 3;
+            let bi = indices[ i+1 ] * 3;
+            let ci = indices[ i+2 ] * 3;
+
+            let a  = [ vertices[ ai+0 ], vertices[ ai+1 ], vertices[ ai+2 ] ];
+            let b  = [ vertices[ bi+0 ], vertices[ bi+1 ], vertices[ bi+2 ] ];
+            let c  = [ vertices[ ci+0 ], vertices[ ci+1 ], vertices[ ci+2 ] ];
+
+            //top.addTriangleVerts( a, b, c );
+            op_AddSubdividedTri( top, a, b, c, 3 );
+            //geo.addTriVertices( a, b, c );
+            //geo.addSubDivideTri( a, b, c, 2 );
+            //if( i == 5 ) break;
+            //break;
+        }
+
+        this.randomQuadMerge( top );
+
+        const final = this.newSubdivide( top );
+
+        //this.relaxFaces( final );
+
+        this.debug_pnts( final, true );
+
+        Ref.final = final;
+
+        let loop = 0;
+        setInterval( ()=>{
+            this.relaxFaces( final, 2, 1, 0.1 );
+            this.debug_pnts( final );
+            Debug.px.reset().add( (loop++).toString() );
+        }, 800 );
+
+
+        
+
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        /*
+        for( let v of top.vertices )      vec3_norm_scale( v.pos, 2 );
+        const fGeo = op_FlattenGeo( top );
+        App.add( Util.mesh( fGeo.vertices, fGeo.indices, null, null, null, false ) );
+
+        for( let v of top.vertices )      vec3_norm_scale( v.pos, 2.01 );
+        //for( const e of top.iterEdges() ) Debug.ln.add( e.a, e.b, 0x707070 );
+        for( const e of top.vertices )    Debug.pnt.add( e.pos, 0xffffff, 1 );
+        
+        for( const f of top.faces ){
+            let edg = top.halfEdges[ f.halfEdges[0] ];
+            let len = f.halfEdges.length;
+            for( let i=1; i <= len; i++ ){
+                let ii  = i % len;
+                let nex = top.halfEdges[ f.halfEdges[ ii ] ];
+                Debug.ln.add( top.getVertPos( edg.vertex ), top.getVertPos( nex.vertex ), 0x707070 );
+                edg = nex;
+            }
+        }
+        */
+
+        ////The 20 faces of the icosahedron are equilateral triangles; they meet in 30 edges and 12 vertices.
+
+        //console.log( top );
+        //console.log( "tri", top.triangles.length, 'edges', top.edges.length, 'verts', top.vertices.length );
+    }
+
+    static debug_pnts( top, mkMesh=false ){
+        if( mkMesh ) for( let v of top.vertices )      vec3_norm_scale( v.pos, v.pos, 2 );
+
+        Debug.pnt.reset();
+        Debug.ln.reset();
+
+        for( const e of top.vertices )    Debug.pnt.add( e.pos, 0x00ff00, 2 );
+
+        for( const f of top.faces ){
+            let edg = top.halfEdges[ f.halfEdges[0] ];
+            let len = f.halfEdges.length;
+            for( let i=1; i <= len; i++ ){
+                let ii  = i % len;
+                let nex = top.halfEdges[ f.halfEdges[ ii ] ];
+                Debug.ln.add( top.getVertPos( edg.vertex ), top.getVertPos( nex.vertex ), 0x707070 );
+                edg = nex;
+            }
+        }
+
+        if( mkMesh ){
+            for( let v of top.vertices ) vec3_norm_scale( v.pos, v.pos, 1.99 );
+            const verts = top.flattenVertices();
+            const ind   = top.flattenIndices();
+            App.add( Util.mesh( verts, ind, null, null, null, false ) );
+        }
+    }
+
+    static randomQuadMerge( top ){
+        // Create a list of edges
+        const edges = new Array( top.edges.length ).fill( 0 );
+        
+        // Fill the array with it's index numbers
+        edges.forEach( (e,i,ary)=>{ ary[i] = i; } );
+
+        // Randomly sort the edges
+        //edges.sort( ()=>Math.random() - 0.5 );
+        const rnd = rndLcg( 300 );
+        edges.sort( ()=>rnd() - 0.5 );
+
+        // Pop an edge from the random queue, if the edge
+        // shared two triangles, merge into a quad
+        let idx;
+        while( (idx = edges.pop()) != undefined ){
+            op_TriToQuadFromEdge( top, idx );
+        }
+
+        // Any halfEdges not part a face, turn its triangle
+        // into a face, this should cleanup the left overs
+        for( let he of top.halfEdges ){
+            if( he.face === -1 ){
+                op_TriToFace( top, he.tri );
+            }
+        }
+    }
+
+    static newSubdivide( top ){
+        const rtn = new Topology();
+        
+        let a, b, c, d;
+        for( let f of top.faces ){
+            switch( f.halfEdges.length ){
+                case 4:
+                    a = top.getVertPos( top.halfEdges[ f.halfEdges[0] ].vertex );
+                    b = top.getVertPos( top.halfEdges[ f.halfEdges[1] ].vertex );
+                    c = top.getVertPos( top.halfEdges[ f.halfEdges[2] ].vertex );
+                    d = top.getVertPos( top.halfEdges[ f.halfEdges[3] ].vertex );
+                    op_AddQuadSubDivide( rtn, a, b, c, d );
+                    break;
+                case 3:
+                    a = top.getVertPos( top.halfEdges[ f.halfEdges[0] ].vertex );
+                    b = top.getVertPos( top.halfEdges[ f.halfEdges[1] ].vertex );
+                    c = top.getVertPos( top.halfEdges[ f.halfEdges[2] ].vertex );
+                    op_AddTriSubDivideFace( rtn, a, b, c );
+                    break;
+                default:
+                    console.error( 'FACE found with a halfedge count that isnt 3 or 4' );
+                    break;
+            }
+        }
+
+        return rtn;
+    }
+
+    static relaxFaces( top, radius=2, iter=50, relaxScl=0.1 ){
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        // https://twitter.com/OskSta/status/1169940644669861888?s=20
+        const PH       = Math.PI * -0.5;
+        const centroid = [0,0,0];
+        const axis     = [0,0,0];
+        const force    = [0,0,0];
+        const v        = [0,0,0];
+        const rot      = [0,0,0,1];
+        
+        let i, f;
+        let a, b, c, d;
+
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        const forces   = new Array( top.vertices.length )
+        for( i=0; i < forces.length; i++ ) forces[ i ] = [0,0,0];
+
+        for( let loop=0; loop < iter; loop++ ){
+
+            // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            // Accumulate rotation forces for each vert of each face
+            for( f of top.faces ){
+                // ----------------------------------
+                // Face centroid
+                a = top.getHalfEdgeVertex( f.halfEdges[ 0 ] );
+                b = top.getHalfEdgeVertex( f.halfEdges[ 1 ] );
+                c = top.getHalfEdgeVertex( f.halfEdges[ 2 ] );
+                d = top.getHalfEdgeVertex( f.halfEdges[ 3 ] );
+
+                vec3_add( centroid, a.pos, b.pos );
+                vec3_add( centroid, centroid, c.pos );
+                vec3_add( centroid, centroid, d.pos );
+                vec3_divScale( centroid, centroid, 4 );
+                
+                // ----------------------------------
+                // Create 90 degreee rotation around the face centroid
+                vec3_norm( axis, centroid );
+                quat_axisAngle( rot, axis, PH );
+
+                // ----------------------------------
+                // Oskar uses rotating forces to relax a quad, its kinda 
+                // like spinning something around kind of like a salad spinner
+                // helps moves things to be more circular in nature
+                // for(i< 4)
+                //   force += verts[i] - center
+                //   force = (force .y,-force .x) // 2D 90 Degree rotation
+                vec3_sub( v, a.pos, centroid );
+                vec3_add( force, force, v );
+                quat_transformVec3( force, rot, force );
+
+                vec3_sub( v, b.pos, centroid );
+                vec3_add( force, force, v );
+                quat_transformVec3( force, rot, force );
+
+                vec3_sub( v, c.pos, centroid );
+                vec3_add( force, force, v );
+                quat_transformVec3( force, rot, force );
+                
+                vec3_sub( v, d.pos, centroid );
+                vec3_add( force, force, v );
+                quat_transformVec3( force, rot, force );
+        
+                vec3_divScale( force, force, 4 );
+
+                // ----------------------------------
+                // Accumulate the force for each vertex. Since vertices
+                // are shared with other faces, we'll be applying the combined
+                // forces of this face & neighboring faces
+                // for(i < 4)
+                //   forces[ i ] += center + force - verts[i]
+                //   force       = (force.y,-force .x)}
+                vec3_add( v, centroid, force );
+                vec3_sub( v, v, a.pos );
+                vec3_add( forces[ a.idx ], forces[ a.idx ], v );
+                quat_transformVec3( force, rot, force );
+
+                vec3_add( v, centroid, force );
+                vec3_sub( v, v, b.pos );
+                vec3_add( forces[ b.idx ], forces[ b.idx ], v );
+                quat_transformVec3( force, rot, force );
+
+                vec3_add( v, centroid, force );
+                vec3_sub( v, v, c.pos );
+                vec3_add( forces[ c.idx ], forces[ c.idx ], v );
+                quat_transformVec3( force, rot, force );
+
+                vec3_add( v, centroid, force );
+                vec3_sub( v, v, d.pos );
+                vec3_add( forces[ d.idx ], forces[ d.idx ], v );
+            }
+
+            // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            // Apply the force to all the vertices
+            for( i=0; i < forces.length; i++ ){
+                vec3_scale( v, forces[ i ], relaxScl );
+                vec3_add( v, top.vertices[ i ].pos, v );
+                
+                // We normalize + scale to keep it spherical, this is extra compaired to irregular hex grid
+                vec3_norm_scale( top.vertices[ i ].pos, v, radius ); 
+            }
+
+            // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            if( loop != iter-1 ){
+                vec3_reset( force );
+                for( i=0; i < forces.length; i++ ){
+                    forces[i][0] = 0;
+                    forces[i][1] = 0;
+                    forces[i][2] = 0;
+                }
+            }
+        }
+    }
+}
+
+function shuffleArray(ary) {
+    let j;
+    for (let i = ary.length - 1; i > 0; i--) {
+        j = Math.floor( Math.random() * (i + 1) );
+        [ary[i], ary[j]] = [ary[j], ary[i]];
+    }
+}
+
+function rndLcg( seed ) {
+    //https://stackoverflow.com/questions/521295/seeding-the-random-number-generator-in-javascript
+    //https://en.wikipedia.org/wiki/Lehmer_random_number_generator
+    function lcg( a ){ return a * 48271 % 2147483647; }
+
+    seed = seed ? lcg( seed ) : lcg( Math.random() );
+    return function(){ return (seed = lcg( seed )) / 2147483648; }
+}
+
+
+/*
+https://github.com/samuelbigos/globescaper/blob/itch/src/Icosphere.gd
+1. Setup an Icosphere
+2. Subdivide it by X much.
+3. 
+*/
+class Vertex{
+    constructor( x, y, z, idx=null ){
+        this.idx        = ( idx != null )? idx : -1;
+        this.halfEdge   = -1;
+        this.pos        = [ x, y, z ];
+        this.userData   = null;
+    }
+}
+
+class Edge{
+    constructor( a, b, idx=null, he=null ){
+        this.idx      = ( idx != null )? idx : -1;
+        this.halfEdge = ( he != null )?  he  : -1;
+        this.aIdx     = a;
+        this.bIdx     = b;
+    }
+
+    getTriangles( top ){
+        // No half edge
+        if( this.halfEdge === -1 ) return null;
+        
+        // No triangle
+        const a = top.halfEdges[ this.halfEdge ];
+        if( a.tri === -1 )  return null;
+        
+        // If twin exists, check if there is a second triangle
+        if( a.twin !== -1 ){
+            const b = top.halfEdges[ a.twin ];
+            if( b.tri !== -1 ) return [ a.tri, b.tri ];
+        }
+
+        // Only one triangle
+        return [ a.tri ];
+    }
+}
+
+class HalfEdge{
+    constructor( idx=null, twin=null ){
+        this.idx    = ( idx != null )?  idx  : -1;
+        this.twin   = ( twin != null )? twin : -1;   // It's reverse side
+
+        this.vertex = -1; // Vertex that starts the half edge
+        this.edge   = -1; // Edge it belongs too
+        this.tri    = -1; // Triangle it belongs to
+        this.face   = -1; // Face it belongs too
+    }
+}
+
+class Triangle{
+    constructor( idx=null ){
+        this.idx       = ( idx != null )? idx : -1;
+        this.halfEdges = [];
+        this.face      = -1;
+    }
+
+    findHalfEdge( top, edgeId ){
+        let he;
+        for( let i of this.halfEdges ){
+            he = top.halfEdges[ i ];
+            if( he.edge == edgeId ) return he;
+        }
+        return null;
+    }
+
+    nextHalfEdge( hIdx ){
+        const i = this.halfEdges.indexOf( hIdx );
+        return this.halfEdges[ (i+1) % 3 ];
+    }
+}
+
+class Face{
+    constructor( idx=null ){
+        this.idx       = ( idx != null) ? idx : -1;
+        this.halfEdges = [];
+    }
+}
+
+class UniqueVertexGeo{
+    // #region MAIN
+    mapVerts = new Map();
+    mapEdges = new Map();
+    vertices = [];
+    edges    = [];
+    tris     = [];
+    faces    = [];
+    // #endregion
+
+    // #region ADDING
+    addVert( pos ){
+        const x = Math.floor( pos[ 0 ] * 100000 );
+        const y = Math.floor( pos[ 1 ] * 100000 );
+        const z = Math.floor( pos[ 2 ] * 100000 );
+        const k = x + '_' + y + '_' + z;
+
+        if( this.mapVerts.has( k ) ) return this.mapVerts.get( k );
+        
+        const v = new Vertex( pos[0], pos[1], pos[2] );
+        v.idx   = this.vertices.length;
+        
+        this.vertices.push( v );
+        this.mapVerts.set( k, v.idx );
+
+        return v.idx;
+    }
+
+    addEdge( ai, bi ){
+        //if( bi < ai ) [ ai, bi ] = [ bi, ai ];
+        const [ min, max ] = ( bi < ai )? [ bi, ai ] : [ ai, bi ]; // Keep idx order
+
+        const k = min + '_' + max;
+        if( this.mapEdges.has( k ) ) return this.edges[ this.mapEdges.get( k ) ];
+        
+        const edge = new Edge( ai, bi );
+        edge.idx = this.edges.length;
+        
+        this.edges.push( edge );
+        this.mapEdges.set( k, edge.idx );
+
+        return edge;
+    }
+
+    addTri( ai, bi, ci ){
+        const e0 = this.addEdge( ai, bi );
+        const e1 = this.addEdge( bi, ci );
+        const e2 = this.addEdge( ci, ai );
+
+        const tri = new Tri( ai, bi, ci );
+        tri.idx = this.tris.length;
+        this.tris.push( tri );
+
+        tri.edges.push( e0.idx, e1.idx, e2.idx );
+        e0.addTri( tri.idx );
+        e1.addTri( tri.idx );
+        e2.addTri( tri.idx );
+
+        return tri.idx;
+    }
+
+    addTriVertices( a, b, c ){
+        const ai = this.addVert( a );
+        const bi = this.addVert( b );
+        const ci = this.addVert( c );
+        return this.addTri( ai, bi, ci );
+    }
+    // #endregion
+
+    // #region GETTERS
+    getVertPos( i ){ return this.vertices[ i ].pos; }
+    // #endregion
+
+    // #region SPECIAL ADD
+
+    addSubDivideTri( a, b, c, div=2 ){
+        const seg_a = [0,0,0];                      // Lerping
+        const seg_b = [0,0,0];
+        const seg_c = [0,0,0];
+
+        let row0    = [ this.addVert( a ) ];
+        let row1;
+
+        let j, t, row;
+        
+        // Subdivide Triangle as many times requested
+        for( let i=1; i <= div; i++ ){
+            t = i / div;                             // Get Lerp T
+            vec3_lerp( seg_b, a, b, t );             // Get Position of two sides of the triangle.
+            vec3_lerp( seg_c, a, c, t );
+
+            // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            // Generate points between the two triangle edges
+            row1 = [ this.addVert( seg_b ) ];        // Add First Point in the Row
+
+            for( j=1; j < i; j++ ){                  // Loop the Remaining Points of the row
+                t = j / i;
+                vec3_lerp( seg_a, seg_b, seg_c, t );
+                row1.push( this.addVert( seg_a ) );
+            }
+
+            row1.push( this.addVert( seg_c ) );      // Add Last row point
+
+            // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            // Generate Triangles for this row, create 1 quat at a time
+            // but the last one will aways be a single triangle
+            for( j=0; j < row0.length; j++ ){
+                this.addTri( row1[ j ], row1[ j+1 ], row0[ j ] );
+                if( j+1 < row0.length ){
+                    this.addTri( row0[ j ], row1[ j+1 ], row0[ j+1 ] );
+                }
+            }
+
+            // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            row0 = row1;    // save row for next loop
+        }
+    }
+
+    // #endregion
+
+    // #region ITERATORS
+    iterEdges(){
+        let   i      = 0;
+        const result = { value:{ a:null, b:null }, done:false };
+        const next   = ()=>{
+            if( i >= this.edges.length ) result.done = true;
+            else{
+                const edge     = this.edges[ i ];
+                result.value.a = this.vertices[ edge.aIdx ].pos;
+                result.value.b = this.vertices[ edge.bIdx ].pos;
+            }
+            i++;
+            return result;
+        };
+
+        return {
+            [Symbol.iterator](){
+                return { next };
+            }
+        };
+    }
+
+    iterFaceEdges( fIdx ){
+        const face   = this.faces[ fIdx ];
+        let   i      = 0;
+        const result = { value:{ a:null, b:null, edge }, done:false };
+        const next   = ()=>{
+            if( i >= face.edges.length ) result.done = true;
+            else{
+                const edge     = face.edges[ i ];
+                result.value.a = this.vertices[ edge.aIdx ].pos;
+                result.value.b = this.vertices[ edge.bIdx ].pos;
+            }
+            i++;
+            return result;
+        };
+
+        return {
+            [Symbol.iterator](){
+                return { next };
+            }
+        };
+    }
+    // #endregion
+
+    // #region OPERATIONS
+
+    opTriToQuadFromEdge( eIdx ){
+        // Edge must have 2 triangles that share it
+        const crossEdge = this.edges[ eIdx ];
+        if( !crossEdge.hasTwoTri() ) return -1;
+
+        // Both triangles must not be part of an existing face
+        const aTri = this.tris[ crossEdge.aTri ];
+        const bTri = this.tris[ crossEdge.bTri ];
+        if( aTri.face !== -1 || bTri.face !== -1 ) return -1;
+
+        // Collect the 4 Edges to form a Quad
+        const aEdge1 = this.edges[ aTri.nextEdge( eIdx ) ];         // Get the next 2 edges of init tri
+        const aEdge2 = this.edges[ aTri.nextEdge( aEdge1.idx ) ];
+        const bEdge1 = this.edges[ bTri.nextEdge( eIdx ) ];         // Then the edges of the opposite tri
+        const bEdge2 = this.edges[ bTri.nextEdge( bEdge1.idx ) ];
+
+        // Get the outer points of the Quad
+        const aiPnt  = aEdge1.getTriVerts( aTri.idx );
+        const biPnt  = bEdge1.getTriVerts( bTri.idx );
+
+        // Create a face
+        const face = new Face();
+        face.idx = this.faces.length;
+        this.faces.push( face );
+
+        // Save its vertices & edges in CCW order
+        face.vertices.push( aiPnt[0], aiPnt[1], biPnt[0], biPnt[1] );
+        face.edges.push( aEdge1.idx, aEdge2.idx, bEdge1.idx, bEdge2.idx );
+        face.tris.push( aTri.idx, bTri.idx );
+
+        // Make triangles as part of a face
+        aTri.face = face.idx;
+        bTri.face = face.idx;
+
+        // Make Edges as part of a face
+        aEdge1.addFace( face.idx );
+        aEdge2.addFace( face.idx );
+        bEdge1.addFace( face.idx );
+        bEdge2.addFace( face.idx );
+
+        // Debug.pnt.add( this.getVertPos( aiPnt[0] ), 0xff0000, 2 );
+        // Debug.pnt.add( this.getVertPos( aiPnt[1] ), 0x00ff00, 2 );
+        // Debug.pnt.add( this.getVertPos( biPnt[0] ), 0x00ffff, 2 );
+        // Debug.pnt.add( this.getVertPos( biPnt[1] ), 0xffff00, 2 );
+        return face.idx;
+    }
+
+    // #endregion
+
+    // #region FLATTENING
+
+    getFlattenGeo(){
+        const geo = {
+            vertices : new Array( this.vertices.length * 3 ),
+            indices : new Array( this.tris.length * 3 ),
+        };
+
+        let o, i=0;
+        for( o of this.vertices ){
+            geo.vertices[ i++ ] = o.pos[ 0 ];
+            geo.vertices[ i++ ] = o.pos[ 1 ];
+            geo.vertices[ i++ ] = o.pos[ 2 ];
+        }
+
+        i=0;
+        for( o of this.tris ){
+            geo.indices[ i++ ] = o.vertices[ 0 ];
+            geo.indices[ i++ ] = o.vertices[ 1 ];
+            geo.indices[ i++ ] = o.vertices[ 2 ];
+        }
+
+        return geo;
+    }
+
+    // #endregion
+}
+
+class Topology{
+    // #region MAIN
+    mapVerts    = new Map();
+    mapEdges    = new Map();
+    vertices    = [];
+    edges       = [];
+    halfEdges   = [];
+    triangles   = [];
+    faces       = [];
+    // #endregion
+
+    // #region ADDING
+    addVertex( pos ){
+        const x = Math.floor( pos[ 0 ] * 100000 );
+        const y = Math.floor( pos[ 1 ] * 100000 );
+        const z = Math.floor( pos[ 2 ] * 100000 );
+        const k = x + '_' + y + '_' + z;
+
+        if( this.mapVerts.has( k ) ) return this.mapVerts.get( k );
+        
+        const v = new Vertex( pos[0], pos[1], pos[2], this.vertices.length );
+        this.vertices.push( v );
+        this.mapVerts.set( k, v.idx );
+
+        return v.idx;
+    }
+
+    addEdge( ai, bi ){
+        const [ min, max ] = ( bi < ai )? [ bi, ai ] : [ ai, bi ]; // Keep idx order
+        const key          = min + '_' + max;
+        const eIdx         = this.mapEdges.get( key );
+
+        const va = this.vertices[ ai ];
+        const vb = this.vertices[ bi ];
+
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        // If edge exists, then create twin if none exists
+        if( eIdx != undefined ){ 
+            const edge = this.edges[ eIdx ];
+            const he   = this.halfEdges[ edge.halfEdge ];
+
+            if( he.twin !== -1 ){
+                console.log( 'Meh', edge, he, this.halfEdges[ he.twin ] );
+                console.error( 'Edge already has two half edges' );
+                return null;
+            }
+
+            const twin  = new HalfEdge( this.halfEdges.length, he.idx );
+            twin.vertex = ai;
+            twin.edge   = eIdx;
+            he.twin     = twin.idx;
+
+            this.halfEdges.push( twin );
+
+            if( va.halfEdge === -1 ) va.halfEdge = twin.idx;
+            if( vb.halfEdge === -1 ) vb.halfEdge = twin.idx;
+            
+            return twin;
+        }
+
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        // Edge doesn't exist, create it and its half edge
+        const he   = new HalfEdge( this.halfEdges.length );
+        const edge = new Edge( ai, bi, this.edges.length, he.idx );
+        
+        he.vertex = ai;
+        he.edge   = edge.idx;
+
+        if( va.halfEdge === -1 ) va.halfEdge = he.idx;
+        if( vb.halfEdge === -1 ) vb.halfEdge = he.idx;
+
+        this.edges.push( edge );
+        this.halfEdges.push( he );
+
+        this.mapEdges.set( key, edge.idx );
+        return he;
+    }
+
+    addTriangle( ai, bi, ci ){
+        // Create Edges & HalfEdges
+        const he0 = this.addEdge( ai, bi );
+        if( he0 === null ) return null;
+
+        const he1 = this.addEdge( bi, ci );
+        if( he1 === null ) return null;
+        
+        const he2 = this.addEdge( ci, ai );
+        if( he2 === null ) return null;
+
+        // Build Triangle
+        const tri = new Triangle( this.triangles.length );
+        tri.halfEdges.push( he0.idx, he1.idx, he2.idx );
+        this.triangles.push( tri );
+        
+        // Set which triangle the half edge is used on
+        he0.tri = tri.idx;
+        he1.tri = tri.idx;
+        he2.tri = tri.idx;
+        return tri;
+    }
+
+    addTriangleVerts( a, b, c ){
+        const ai = this.addVertex( a );
+        const bi = this.addVertex( b );
+        const ci = this.addVertex( c );
+        return this.addTriangle( ai, bi, ci );
+    }
+    // #endregion
+
+    // #region GETTERS
+    getVertPos( i ){ return this.vertices[ i ].pos; }
+    getHalfEdgeVertIdx( i ){ return this.halfEdges[ i ].vertex; }
+    getHalfEdgeVertex( i ){ return this.vertices[ this.halfEdges[ i ].vertex ]; }
+    getHalfEdgePos( i ){ return this.vertices[ this.halfEdges[ i ].vertex ].pos; }
+    // #endregion
+
+    // #region FLATTEN
+
+    flattenVertices(){
+        const rtn = new Array( this.vertices.length * 3 );
+        let o, i=0;
+        for( o of this.vertices ){
+            rtn[ i++ ] = o.pos[ 0 ];
+            rtn[ i++ ] = o.pos[ 1 ];
+            rtn[ i++ ] = o.pos[ 2 ];
+        }
+        return rtn;
+    }
+
+    flattenIndices(){
+        const rtn = new Array( this.triangles.length * 3 );
+        let o, i=0;
+        for( o of this.triangles ){
+            rtn[ i++ ] = this.getHalfEdgeVertIdx( o.halfEdges[ 0 ] );
+            rtn[ i++ ] = this.getHalfEdgeVertIdx( o.halfEdges[ 1 ] );
+            rtn[ i++ ] = this.getHalfEdgeVertIdx( o.halfEdges[ 2 ] );
+        }
+        return rtn;
+    }
+    // #endregion
+
+    // #region ITERATORS
+    iterEdges(){
+        let   i      = 0;
+        const result = { value:{ a:null, b:null }, done:false };
+        const next   = ()=>{
+            if( i >= this.edges.length ) result.done = true;
+            else{
+                const edge     = this.edges[ i ];
+                result.value.a = this.vertices[ edge.aIdx ].pos;
+                result.value.b = this.vertices[ edge.bIdx ].pos;
+            }
+            i++;
+            return result;
+        };
+
+        return {
+            [Symbol.iterator](){
+                return { next };
+            }
+        };
+    }
+    // #endregion
+}
+
+function op_AddSubdividedTri( top, a, b, c, div=2 ){
+    const seg_a = [0,0,0];                      // Lerping
+    const seg_b = [0,0,0];
+    const seg_c = [0,0,0];
+
+    let row0    = [ top.addVertex( a ) ];
+    let row1;
+
+    let j, t, row;
+    
+    // Subdivide Triangle as many times requested
+    for( let i=1; i <= div; i++ ){
+        t = i / div;                             // Get Lerp T
+        vec3_lerp( seg_b, a, b, t );             // Get Position of two sides of the triangle.
+        vec3_lerp( seg_c, a, c, t );
+
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        // Generate points between the two triangle edges
+        row1 = [ top.addVertex( seg_b ) ];        // Add First Point in the Row
+
+        for( j=1; j < i; j++ ){                  // Loop the Remaining Points of the row
+            t = j / i;
+            vec3_lerp( seg_a, seg_b, seg_c, t );
+            row1.push( top.addVertex( seg_a ) );
+        }
+
+        row1.push( top.addVertex( seg_c ) );      // Add Last row point
+
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        // Generate Triangles for this row, create 1 quat at a time
+        // but the last one will aways be a single triangle
+        for( j=0; j < row0.length; j++ ){
+            top.addTriangle( row1[ j ], row1[ j+1 ], row0[ j ] );
+            if( j+1 < row0.length ){
+                top.addTriangle( row0[ j ], row1[ j+1 ], row0[ j+1 ] );
+            }
+        }
+
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        row0 = row1;    // save row for next loop
+    }
+}
+
+function op_TriToQuadFromEdge( top, eIdx ){
+    // Edge must have 2 triangles that share it
+    const crossEdge = top.edges[ eIdx ];
+    const tris      = crossEdge.getTriangles( top );
+    if( tris == null || tris.length != 2 ) return -1;
+
+    // Both triangles must not be part of an existing face
+    const aTri = top.triangles[ tris[ 0 ] ];
+    const bTri = top.triangles[ tris[ 1 ] ];
+    if( aTri.face !== -1 || bTri.face !== -1 ) return -1;
+
+    // Find all the Half edges that will form a quad
+    const aHE0 = aTri.findHalfEdge( top, crossEdge.idx );
+    const aHE1 = top.halfEdges[ aTri.nextHalfEdge( aHE0.idx ) ];
+    const aHE2 = top.halfEdges[ aTri.nextHalfEdge( aHE1.idx ) ];
+
+    const bHE0 = bTri.findHalfEdge( top, crossEdge.idx );
+    const bHE1 = top.halfEdges[ bTri.nextHalfEdge( bHE0.idx ) ];
+    const bHE2 = top.halfEdges[ bTri.nextHalfEdge( bHE1.idx ) ];
+
+    // Build face made up of half edges
+    const face = new Face( top.faces.length );
+    top.faces.push( face );
+    face.halfEdges.push( aHE1.idx, aHE2.idx, bHE1.idx, bHE2.idx );
+    
+    // Mark triangles as being part of a face
+    aTri.face = face.idx;
+    bTri.face = face.idx;
+
+    // Mark edges to being part of a face
+    aHE0.face = face.idx;
+    aHE1.face = face.idx;
+    aHE2.face = face.idx;
+    
+    bHE0.face = face.idx;
+    bHE1.face = face.idx;
+    bHE2.face = face.idx;
+
+    return face.idx;
+}
+
+function op_TriToFace( top, tIdx ){
+    const tri = top.triangles[ tIdx ];
+    if( tri.face !== -1 ) return -1;
+    
+    // Create face
+    const face = new Face( top.faces.length );
+    top.faces.push( face );
+    
+    // Mark triangle as a face
+    tri.face = face.idx;
+    
+    // Copy Half edges over & mark them part of a face
+    let he;
+    for( let i of tri.halfEdges ){
+        he      = top.halfEdges[ i ];
+        he.face = face.idx;
+        face.halfEdges.push( i );
+    }
+
+    return face.idx;
+}
+
+function op_AddQuadFace( top, a, b, c, d ){
+    // Create & Get Vertex Index
+    const ai = top.addVertex( a );
+    const bi = top.addVertex( b );
+    const ci = top.addVertex( c );
+    const di = top.addVertex( d );
+
+    // Create Edges
+    const ha0 = top.addEdge( ai, bi );
+    const ha1 = top.addEdge( bi, ci );
+    const ha2 = top.addEdge( ci, ai );
+
+    const hb0 = top.addEdge( ci, di );
+    const hb1 = top.addEdge( di, ai );
+    const hb2 = top.addEdge( ai, ci ); // Half Edge Twin to ha2
+
+    // Create Triangles
+    const triA = new Triangle( top.triangles.length );
+    triA.halfEdges.push( ha0.idx, ha1.idx, ha2.idx );
+    top.triangles.push( triA );
+
+    const triB = new Triangle( top.triangles.length );
+    triB.halfEdges.push( hb0.idx, hb1.idx, hb2.idx );
+    top.triangles.push( triB );
+
+    // Create face 
+    const face = new Face( top.faces.length );
+    top.faces.push( face );
+    face.halfEdges.push( ha0.idx, ha1.idx, hb0.idx, hb1.idx );
+
+    // Link everything up
+    triA.face = face.idx;
+    triB.face = face.idx;
+
+    ha0.face = face.idx;
+    ha1.face = face.idx;
+    ha2.face = face.idx;
+    ha0.tri  = triA.idx;
+    ha1.tri  = triA.idx;
+    ha2.tri  = triA.idx;
+
+    hb0.face = face.idx;
+    hb1.face = face.idx;
+    hb2.face = face.idx;
+    hb0.tri  = triB.idx;
+    hb1.tri  = triB.idx;
+    hb2.tri  = triB.idx;   
+}
+
+
+function op_AddQuadSubDivide( top, a, b, c, d ){
+    const ab = vec3_lerp( [0,0,0], a, b, 0.5 );
+    const bc = vec3_lerp( [0,0,0], b, c, 0.5 );
+    const cd = vec3_lerp( [0,0,0], c, d, 0.5 );
+    const da = vec3_lerp( [0,0,0], d, a, 0.5 );
+    const cp = vec3_add( [0,0,0], a, b );
+    vec3_add( cp, cp, c );
+    vec3_add( cp, cp, d );
+    vec3_divScale( cp, cp, 4 );
+
+    op_AddQuadFace( top, a, ab, cp, da );
+    op_AddQuadFace( top, ab, b, bc, cp );
+    op_AddQuadFace( top, bc, c, cd, cp );
+    op_AddQuadFace( top, cd, d, da, cp );
+}
+
+function op_AddTriSubDivideFace( top, a, b, c ){
+    const ab = vec3_lerp( [0,0,0], a, b, 0.5 );
+    const bc = vec3_lerp( [0,0,0], b, c, 0.5 );
+    const ca = vec3_lerp( [0,0,0], c, a, 0.5 );
+    const cp = vec3_add( [0,0,0], a, b );
+    vec3_add( cp, cp, c );
+    vec3_divScale( cp, cp, 3 );
+
+    op_AddQuadFace( top, cp, ca, a, ab );
+    op_AddQuadFace( top, cp, ab, b, bc );
+    op_AddQuadFace( top, cp, bc, c, ca );
+}
+
+function op_FlattenGeo( top ){
+    const geo = {
+        vertices : new Array( top.vertices.length * 3 ),
+        indices : new Array( top.triangles.length * 3 ),
+    };
+
+    let o, i=0;
+    for( o of top.vertices ){
+        geo.vertices[ i++ ] = o.pos[ 0 ];
+        geo.vertices[ i++ ] = o.pos[ 1 ];
+        geo.vertices[ i++ ] = o.pos[ 2 ];
+    }
+
+    i=0;
+    for( o of top.triangles ){
+        geo.indices[ i++ ] = top.getHalfEdgeVert( o.halfEdges[ 0 ] );
+        geo.indices[ i++ ] = top.getHalfEdgeVert( o.halfEdges[ 1 ] );
+        geo.indices[ i++ ] = top.getHalfEdgeVert( o.halfEdges[ 2 ] );
+    }
+
+    return geo;
+}
+
+
+function vec3_reset( out ){
+    out[ 0 ] = 0;
+    out[ 1 ] = 0;
+    out[ 2 ] = 0;
+    return out;
+}
+
+function vec3_add( out, a, b ){
+    out[ 0 ] = a[0] + b[0];
+    out[ 1 ] = a[1] + b[1];
+    out[ 2 ] = a[2] + b[2];
+    return out;
+}
+
+function vec3_sub( out, a, b ){
+    out[ 0 ] = a[0] - b[0];
+    out[ 1 ] = a[1] - b[1];
+    out[ 2 ] = a[2] - b[2];
+    return out;
+}
+
+function vec3_scale( out, a, s ){
+    out[ 0 ] = a[0] * s;
+    out[ 1 ] = a[1] * s;
+    out[ 2 ] = a[2] * s;
+    return out;
+}
+
+function vec3_divScale( out, a, s ){
+    out[ 0 ] = a[0] / s;
+    out[ 1 ] = a[1] / s;
+    out[ 2 ] = a[2] / s;
+    return out;
+}
+
+function vec3_lerp( out, a, b, t ){
+    const ti = 1-t;
+    out[ 0 ] = a[ 0 ] * ti + b[ 0 ] * t;
+    out[ 1 ] = a[ 1 ] * ti + b[ 1 ] * t;
+    out[ 2 ] = a[ 2 ] * ti + b[ 2 ] * t;
+    return out;
+}
+
+function vec3_norm( out, v ){
+    const len = Math.sqrt( v[0]**2 + v[1]**2 + v[2]**2 );
+    out[0] = v[0] / len;
+    out[1] = v[1] / len;
+    out[2] = v[2] / len;
+    return v;
+}
+
+function vec3_norm_scale( out, v, s ){
+    const len = Math.sqrt( v[0]**2 + v[1]**2 + v[2]**2 );
+    out[0] = ( v[0] / len ) * s;
+    out[1] = ( v[1] / len ) * s;
+    out[2] = ( v[2] / len ) * s;
+    return out;
+}
+
+function quat_axisAngle( out, axis, rad ){ 
+    const half = rad * .5,
+            s    = Math.sin( half );
+    out[ 0 ] = axis[ 0 ] * s;
+    out[ 1 ] = axis[ 1 ] * s;
+    out[ 2 ] = axis[ 2 ] * s;
+    out[ 3 ] = Math.cos( half );
+    return out;
+}
+
+function quat_transformVec3( out, q, v ){
+    const   qx = q[0], qy = q[1], qz = q[2], qw = q[3],
+            vx = v[0], vy = v[1], vz = v[2],
+            x1 = qy * vz - qz * vy,
+            y1 = qz * vx - qx * vz,
+            z1 = qx * vy - qy * vx,
+            x2 = qw * x1 + qy * z1 - qz * y1,
+            y2 = qw * y1 + qz * x1 - qx * z1,
+            z2 = qw * z1 + qx * y1 - qy * x1;
+    out[ 0 ] = vx + 2 * x2;
+    out[ 1 ] = vy + 2 * y2;
+    out[ 2 ] = vz + 2 * z2;
+    return out;
+}
+
+</script>
+</body></html>

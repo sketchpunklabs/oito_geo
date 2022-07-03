@@ -7,7 +7,7 @@ class UVSphere{
         let s_lat, c_lat, s_lng, c_lng, x, y, z, i, j, len, tj, ti;
         let lon        = 0;
         let lat        = 0; 
-        const latRng   = Maths.PI_2; //Maths.PI_H;
+        const latRng   = Maths.TAU; //Maths.PI_H;
         const lngRng   = Math.PI; // Maths.PI_H;
 
         //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

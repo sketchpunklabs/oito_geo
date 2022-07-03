@@ -153,7 +153,7 @@ function glColor( hex, out = null ){
 function newShapePointsMeshMaterial(){
 
     return new THREE.RawShaderMaterial({
-    depthTest       : false,
+    depthTest       : true,
     transparent 	: true, 
     uniforms        : { u_scale:{ value : 20.0 } },
     vertexShader    : `#version 300 es

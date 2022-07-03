@@ -1,5 +1,5 @@
 import { Maths, vec3 }  from 'oito';
-import Util             from '../util/Util'
+import Util             from '../util/Util';
 
 export default class Capsule{
     static get( radius=0.5, height=1.0, latheSteps=10, arcSteps=5 ) : TGeo{

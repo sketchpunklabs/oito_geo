@@ -1,0 +1,312 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title></title></head><body>
+<script type="module">
+
+//#region IMPORTS
+import Starter, { THREE }           from '../_lib/Starter.js';
+import Util                         from '../_lib/Util.js';
+import Grid                         from '../../src/primitives/Grid';
+import ShapePointsMesh              from '../_lib/ShapePointsMesh.js';
+import DynLineMesh                  from '../_lib/DynLineMesh.js';
+import { vec3 }                     from 'oito';
+//#endregion
+
+//#region MAIN
+let App;
+let Debug   = {};
+let Ref     = {};
+
+window.addEventListener( "load", async _=>{
+    App = new Starter( { webgl2:true, grid:true } );
+    App.setCamera( 0, 20, 6, [0,0.0,0] );
+
+    App.add( ( Debug.pnt = new ShapePointsMesh() ) );
+    App.add( ( Debug.ln  = new DynLineMesh() ) );
+
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    //curvedGrid();
+    const geo = curved_wall();
+    const mesh = Util.mesh( geo.vertices, geo.indices, geo.normals, geo.texcoord, null, true );
+    App.add( mesh );
+
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    App.render();
+});
+//#endregion
+
+function curved_wall(){
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    const PH        = Math.PI * 0.5;
+    const iniRad    = -PH;
+
+    const wallSize  = 2;
+    const wallWidth = 1;
+    const radius    = 1;
+    const curve_seg = 2;
+    const arcLen    = PH * radius;
+
+    const rtn = {
+        vertices : [],
+        indices  : [],
+        texcoord : [],
+        normals  : [],
+    };
+
+    let t, cos, sin, rad;
+    let n, y, z;
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Floor
+    rtn.vertices.push( 0, 0, wallSize );            // LEFT BOTTOM
+    rtn.vertices.push( wallWidth, 0, wallSize );    // RIGHT BOTTOM
+    rtn.normals.push( 0,1,0, 0,1,0 );
+    rtn.texcoord.push( 
+        0, wallSize, wallWidth, wallSize,
+    );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Generate Arc
+    for( let i=0; i <= curve_seg; i++ ){
+        t        = i / curve_seg;
+        rad      = iniRad - PH * t;
+        cos      = Math.cos( rad );
+        sin      = Math.sin( rad );
+
+        n        = arcLen * t;
+        rtn.texcoord.push( 0, n, wallWidth, n );
+
+        y = radius * sin + radius;
+        z = radius * cos;        
+        rtn.vertices.push( 0,y,z, wallWidth,y,z );
+
+        y = -sin;
+        z = -cos;
+        rtn.normals.push( 0,y,z,  0,y,z );
+    }
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // BACK WALL
+    rtn.vertices.push( 0, wallSize, -radius );
+    rtn.vertices.push( wallWidth, wallSize, -radius );
+    rtn.normals.push( 0,0,1, 0,0,1 );
+    rtn.texcoord.push( 0,-wallSize,  wallWidth,-wallSize );
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // INDICES
+    const faceCnt = curve_seg + 2;
+    let   ii      = 0;
+    for( let i=0; i < faceCnt; i++ ){
+        ii = i * 2;
+        rtn.indices.push( ii+0, ii+1, ii+2, ii+1, ii+3, ii+2 ); // console.log( i, ii+0, ii+1, ii+2, ii+3 );
+    }
+
+    // DEBUG
+    const v = [0,0,0];
+    n=[0,0,0];
+    for( let i=0; i < rtn.vertices.length; i+=3 ){
+        vec3.fromBuf( rtn.vertices, i, v );
+        vec3.fromBuf( rtn.normals, i, n );
+        Debug.pnt.add( v, 0x00ff00, 2 );
+        Debug.ln.add( v, vec3.scaleThenAdd( n, 0.5, v ) );
+    }
+
+    return rtn;
+}
+
+function curvedGrid(){
+
+    const tesselationSegments = 8;
+    const halfWidth = 20;
+    const halfDepth = 20;
+    const quarterCircleLength = 0.5 * Math.PI;
+    const offsetZ = 2.0;
+    const indexCount = tesselationSegments * 6;
+    const vertexCount = tesselationSegments * 2 + 2;
+    
+    console.log( [-halfWidth, -halfDepth] );
+    console.log( [-halfWidth,      0] );
+
+    for (let i = 0; i < vertexCount / 2; i++)
+    {
+        const t = i / tesselationSegments;
+        const ng = t * Math.PI * 0.5 + Math.PI * 1.5;
+        const n = [ 0, -Math.sin(ng), -Math.cos(ng) ];
+
+
+        Debug.pnt.add( [-halfWidth, Math.sin(ng) + 1, Math.cos(ng) + offsetZ], 0x00ff00, 2 );
+        //Debug.pnt.add( n, 0x00ff00, 2 );
+        //Debug.pnt.add( [-halfWidth, t * quarterCircleLength], 0x00ff00, 2 );
+
+        Debug.pnt.add( [ halfWidth, Math.sin(ng) + 1, Math.cos(ng) + offsetZ ], 0x00ff00, 2);
+        //Debug.pnt.add( n, 0x00ff00, 2 );
+        //Debug.pnt.add( [  halfWidth, t * quarterCircleLength ], 0x00ff00, 2);
+
+        console.log( "x", [-halfWidth, t * quarterCircleLength] );
+        //console.log( "x", [  halfWidth, t * quarterCircleLength ] );
+
+        // halfWidth, 
+        // sinf(ng) + 1.f, 
+        // cosf(ng) + offsetZ, 
+        // n.x, n.y, n.z,  
+
+        // halfWidth, t * quarterCircleLength
+        // });
+
+    }
+
+    //vertices.push_back(
+    Debug.pnt.add( [-halfWidth, 0, 0.0 + offsetZ], 0x00ffff, 8);
+    //Debug.pnt.add( [0, 1, 0, ], 0x00ffff, 4);
+    //Debug.pnt.add( [-halfWidth,      0], 0x00ff00, 9);
+    
+
+    Debug.pnt.add( [halfWidth, 0,       0 + offsetZ], 0x00ffff, 8);
+    // vertices.push_back({ halfWidth, 0.f,       0.0f + offsetZ, 0.f, 1.f, 0.f,  halfWidth,       0.0f });
+
+    Debug.pnt.add( [-halfWidth, 0, -halfDepth + offsetZ], 0x00ffff, 8);
+    // vertices.push_back({-halfWidth, 0.f, -halfDepth + offsetZ, 0.f, 1.f, 0.f, -halfWidth, -halfDepth });
+
+    
+    
+    Debug.pnt.add( [halfWidth, 0, -halfDepth + offsetZ], 0x00ffff, 8);
+    // vertices.push_back({ halfWidth, 0.f, -halfDepth + offsetZ, 0.f, 1.f, 0.f,  halfWidth, -halfDepth });
+
+
+    Debug.pnt.add( [-halfWidth, 1,             1 + offsetZ], 0xffff00, 8);
+    console.log( 'x',[-halfWidth,  quarterCircleLength] ) 
+    //vertices.push_back({-halfWidth, 1.f,             1.0f + offsetZ, 0.f, 0.f, -1.f, -halfWidth,  quarterCircleLength});
+    
+
+    Debug.pnt.add( [halfWidth, 1,             1 + offsetZ], 0xffff00, 8);
+    //vertices.push_back({ halfWidth, 1.f,             1.0f + offsetZ, 0.f, 0.f, -1.f,  halfWidth,  quarterCircleLength});
+    
+    Debug.pnt.add( [-halfWidth, 1 + halfDepth, 1 + offsetZ], 0xffff00, 8);
+    console.log( 'x',[-halfWidth,  quarterCircleLength + halfDepth] );
+    //vertices.push_back({-halfWidth, 1.f + halfDepth, 1.0f + offsetZ, 0.f, 0.f, -1.f, -halfWidth,  quarterCircleLength + halfDepth});
+    
+    Debug.pnt.add( [halfWidth, 1 + halfDepth, 1 + offsetZ], 0xffff00, 8);
+    //vertices.push_back({ halfWidth, 1.f + halfDepth, 1.0f + offsetZ, 0.f, 0.f, -1.f,  halfWidth,  quarterCircleLength + halfDepth});
+}
+
+
+/*
+// https://github.com/CedricGuillemet/Flooid/blob/e1ebeb7b6b3850bb9b22daf034bc89f37b390459/src/App/Source/Renderer.cpp#L8
+void GenerateCurvedGrid(std::vector<Renderer::Vertex>& vertices, std::vector<uint16_t>& indices)
+{
+    const int tesselationSegments = 16;
+    const float halfWidth = 20.f;
+    const float halfDepth = 20.f;
+    const float quarterCircleLength = 0.5f * Imm::PI;
+    const float offsetZ = 2.f;
+    const uint32_t indexCount = tesselationSegments * 6;
+    const uint32_t vertexCount = tesselationSegments * 2 + 2;
+    indices.reserve(indexCount);
+    vertices.reserve(vertexCount);
+    
+    for (uint32_t i = 0; i < tesselationSegments; i++)
+    {
+        indices.push_back(i * 2 + 0);
+        indices.push_back(i * 2 + 2);
+        indices.push_back(i * 2 + 1);
+        
+        indices.push_back(i * 2 + 1);
+        indices.push_back(i * 2 + 2);
+        indices.push_back(i * 2 + 3);
+    }
+    
+    for (uint32_t i = 0; i < vertexCount / 2; i++)
+    {
+        const float t = float(i) / float(tesselationSegments);
+        const float ng = t * Imm::PI * 0.5f + Imm::PI * 1.5f;
+        Imm::vec3 n{0.f, -sinf(ng), -cosf(ng)};
+        vertices.push_back({-halfWidth, sinf(ng) + 1.f, cosf(ng) + offsetZ, n.x, n.y, n.z, -halfWidth, t * quarterCircleLength});
+        vertices.push_back({ halfWidth, sinf(ng) + 1.f, cosf(ng) + offsetZ, n.x, n.y, n.z,  halfWidth, t * quarterCircleLength});
+    }
+    // ground
+    static const int planIndices[] = {0,  2,  1, 1,  2,  3};
+    for(auto index : planIndices)
+    {
+        indices.push_back(static_cast<uint16_t>(index + vertices.size()));
+    }
+    vertices.push_back({-halfWidth, 0.f,       0.0f + offsetZ, 0.f, 1.f, 0.f, -halfWidth,       0.0f });
+    vertices.push_back({ halfWidth, 0.f,       0.0f + offsetZ, 0.f, 1.f, 0.f,  halfWidth,       0.0f });
+    vertices.push_back({-halfWidth, 0.f, -halfDepth + offsetZ, 0.f, 1.f, 0.f, -halfWidth, -halfDepth });
+    vertices.push_back({ halfWidth, 0.f, -halfDepth + offsetZ, 0.f, 1.f, 0.f,  halfWidth, -halfDepth });
+
+    for(auto index : planIndices)
+    {
+        indices.push_back(static_cast<uint16_t>(index + vertices.size()));
+    }
+    
+    vertices.push_back({-halfWidth, 1.f,             1.0f + offsetZ, 0.f, 0.f, -1.f, -halfWidth,  quarterCircleLength});
+    vertices.push_back({ halfWidth, 1.f,             1.0f + offsetZ, 0.f, 0.f, -1.f,  halfWidth,  quarterCircleLength});
+    vertices.push_back({-halfWidth, 1.f + halfDepth, 1.0f + offsetZ, 0.f, 0.f, -1.f, -halfWidth,  quarterCircleLength + halfDepth});
+    vertices.push_back({ halfWidth, 1.f + halfDepth, 1.0f + offsetZ, 0.f, 0.f, -1.f,  halfWidth,  quarterCircleLength + halfDepth});
+}
+*/
+
+/*
+$input v_texcoord0, v_normal, v_positionWorld
+
+#include "bgfx_shader.sh"
+#include "CommonFS.shader"
+#include "Common.shader"
+
+//SAMPLER3D(texDensity, 0);
+
+uniform vec4 directional;
+
+float grid(vec2 st, float res)
+{
+    vec2 grid = fract((st + 0.5) * res);
+    return (step(res, grid.x) * step(res, grid.y));
+}
+
+
+void main()
+{
+    vec3 lightDir = vec3(0.2, -0.6, 0.5);
+    //vec3 lightToPos = lightPos - v_positionWorld;
+    float illum = dot(normalize(-lightDir), normalize(v_normal)) * 0.5 + 0.8;
+    
+    float g = grid(v_texcoord0.xy * 8., 0.05) * 0.4 + 0.6;
+    g = min(g, grid(v_texcoord0.xy * 40. + 0.5, 0.1) * 0.2 + 0.8);
+    g *= 0.3;
+    g -= 0.05;
+    
+    g *= illum;
+
+    // int MAX_STEPS = 5;
+    
+    // vec3 rayOrigin = v_positionWorld.xyz;
+    // vec3 rayDir = -directional.xyz;
+    
+    
+    // vec2 boxIntersection = intersectAABB(rayOrigin, rayDir, vec3(0., 0., 0.), vec3(1., 1., 1.));
+    
+    // if (abs(boxIntersection.y) > abs(boxIntersection.x))
+    // {
+    //     float jitterScale = hash(vec4(rayOrigin.xy+vec2(MAX_STEPS), rayOrigin.yx * float(MAX_STEPS))) * 0.2;
+        
+        
+    //     float accum = 0.;
+    //     float absorption = 0.1;
+    //     float step = (boxIntersection.y - boxIntersection.x) / float(MAX_STEPS);
+    //     for(int i = 0; i < MAX_STEPS; i ++)
+    //     {
+    //         vec3 rayPos = rayOrigin + rayDir * (step * (float(i) + 0.5) + jitterScale + boxIntersection.x);
+    //         accum += texture3D(texDensity, rayPos, 0).x;
+    //     }
+    //     g *= exp(-accum * absorption);
+    // }
+    
+
+    gl_FragColor = vec4(g, g, g, 1.0);
+    //gl_FragColor = vec4(v_normal *0.5 + 0.5, 1.0);
+}
+*/
+
+</script>
+</body></html>

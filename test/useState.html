@@ -1,0 +1,106 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title></title></head><body>
+<script type="module">
+
+// https://stackoverflow.com/questions/53024488/how-does-react-usestate-triggers-re-render
+
+const Demo = (function React() {
+  let workInProgress = false;
+  let context = null;
+
+  const internalRendering = (callingContext) => {
+    context = callingContext;
+    context();
+  };
+
+  const intialRender = (component) => {
+    context = component;
+    workInProgress = true;
+    context.state = [];
+    context.TotalcallerId = -1; // to store the count of total number of useState within a component
+    context.count = -1; // counter to keep track of useStates within component
+    internalRendering(context);
+    workInProgress = false;
+    context.TotalcallerId = context.count;
+    context = null;
+  };
+
+  const useState = (initState) => {
+    if (!context) throw new Error("Can only be called inside function");
+
+     // resetting the count so that it can maintain the order of useState being called
+
+    context.count =
+      context.count === context.TotalcallerId ? -1 : context.count; 
+
+    let callId = ++context.count;
+
+    // will only initialize the value of setState on initial render
+    const setState =
+      !workInProgress ||
+      (() => {
+        const instanceCallerId = callId;
+        const memoizedContext = context;
+        return (updatedState) => {
+          memoizedContext.state[instanceCallerId].value = updatedState;
+          internalRendering(memoizedContext);
+        };
+      })();
+
+    context.state[callId] = context.state[callId] || {
+      value: initState,
+      setValue: setState,
+    };
+
+    return [context.state[callId].value, context.state[callId].setValue];
+  };
+
+  return { useState, intialRender };
+})();
+
+const { useState, intialRender } = Demo;
+
+const Component = () => {
+  const [count, setCount] = useState(1);
+  const [greeting, setGreeting] = useState("hello");
+
+  const changeCount = () => setCount(100);
+  const changeGreeting = () => setGreeting("hi");
+
+  setTimeout(() => {
+    changeCount();
+    changeGreeting();
+  }, 5000);
+
+  return console.log(`count ${count} name ${greeting}`);
+};
+
+const anotherComponent = () => {
+    const [count, setCount] = useState(50);
+    const [value, setValue] = useState("World");
+
+    const changeCount = () => setCount(500);
+    const changeValue = () => setValue("React");
+
+    setTimeout(() => {
+        changeCount();
+        changeValue();
+    }, 10000);
+
+    return console.log(`count ${count} name ${value}`);
+};
+
+    
+window.addEventListener( "load", async _=>{
+    intialRender(Component);
+    intialRender(anotherComponent);
+});
+//#endregion
+
+
+//#region LOREM
+//#endregion
+
+</script>
+</body></html>

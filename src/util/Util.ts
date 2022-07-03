@@ -250,7 +250,7 @@ class Util{
 		let t, angle;
 		for( let i=0; i < pntCnt; i++ ){
 			t		= i / pntCnt;
-			angle 	= Maths.PI_2 * t;
+			angle 	= Maths.TAU * t;
 			out.push( Math.cos( angle ) * radius, Math.sin( angle ) * radius, 0 );
 		}
 	}
@@ -280,10 +280,6 @@ class Util{
             yt = 1 - ( y / yLen );
             for( x=0; x <= xLen; x++ ) out.push( x / xLen, yt );
         }
-
-        // TODO, Coords my be backwards, this might be the correct setup
-        // yt = ( y / yLen );
-        // for( x=0; x <= xLen; x++ ) out.push( 1 - x / xLen, yt );
     }
     // #endregion ////////////////////////////////////////////////////////////////////////////////
 
@@ -294,7 +290,7 @@ class Util{
     static newGeo(): TGeo { return { vertices:[], normals:[], indices :[], texcoord:[] }; }
 
     /** Duplicate a set of vertices while rotating them around an axis */
-    static lathe( base: Array<number>, out: Array<number>, steps=2, repeatStart=false, angleRng=Maths.PI_2, rotAxis="y" ) : void{
+    static lathe( base: Array<number>, out: Array<number>, steps=2, repeatStart=false, angleRng=Maths.TAU, rotAxis="y" ) : void{
         const inc   = angleRng / steps;
         const v     = new Vec3();
         const len   = base.length;
@@ -309,7 +305,7 @@ class Util{
 
             for( j=0; j < len; j+=3 ){
                 v.fromBuf( base, j );
-
+                
                 switch( rotAxis ){ // https://www.siggraph.org/education/materials/HyperGraph/modeling/mod_tran/3drota.htm#Y-Axis%20Rotation
                     case "y": ry = v.y;		rx = v.z*sin + v.x*cos;		rz = v.z*cos - v.x*sin; break;
                     case "x": rx = v.x; 	ry = v.y*cos - v.z*sin;		rz = v.y*sin + v.z*cos; break;

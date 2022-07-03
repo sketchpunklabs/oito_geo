@@ -1,5 +1,5 @@
-import UniqueVertexGeo  from "./extra/UniqueVertexGeo.js";
-import Util             from "./extra/Util.js";
+import UniqueVertexGeo  from "../util/UniqueVertexGeo.js";
+import Util             from "../util/Util.js";
 
 class Tetrahedron {
 

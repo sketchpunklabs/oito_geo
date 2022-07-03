@@ -132,7 +132,7 @@ function glColor( hex, out = null ){
 
 function newDynLineMeshMaterial(){
     return new THREE.RawShaderMaterial({
-    depthTest       : false,
+    depthTest       : true,
     transparent 	: true, 
     uniforms        : { 
         dashSeg : { value : 1 / 0.07 },
