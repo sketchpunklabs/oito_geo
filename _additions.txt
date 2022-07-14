@@ -1,3 +1,6 @@
+https://larsberg.github.io/2018_nov_sketches/1010_ribWorm/index.html // Cool Scene
+https://larsberg.github.io/2018_nov_sketches/1005_gltf/index.html
+
 https://catlikecoding.com/unity/tutorials/procedural-meshes/seamless-cube-sphere/
 
 https://catlikecoding.com/unity/tutorials/procedural-meshes/octasphere/
@@ -6,5 +9,35 @@ https://catlikecoding.com/unity/tutorials/procedural-meshes/icosphere/
 
 https://www.robscanlon.com/hexasphere/
 
+https://prideout.net/blog/octasphere/  // Rounded Cube
+
+https://gorillasun.de/blog/an-algorithm-for-irregular-grids
+
+https://deep110.github.io/posts/blogs/2022-06-25-terrain-editor-marching-cubes.html
+
+https://gorillasun.de/blog/delaunay-triangulation-and-voronoi-diagrams
+https://gorillasun.de/blog/bowyer-watson-algorithm-for-delaunay-triangulation
+https://github.com/mapbox/delaunator
+
+https://gorillasun.de/blog/making-of-behind-the-canvas  // How to make smooth polygons
+https://gorillasun.de/blog/an-algorithm-for-polygons-with-rounded-corners
+
+https://www.gamedeveloper.com/programming/procedural-dungeon-generation-algorithm
+
+https://gorillasun.de/blog/how-to-set-up-a-breadfond
+
+https://gorillasun.de/blog/parametric-functions-and-particles
+
+
+https://gorillasun.de/blog/perlin-noise-flow-fields-in-processing-part-i
+https://gorillasun.de/blog/perlin-noise-flow-fields-in-processing-part-ii
+
+https://gorillasun.de/blog/a-guide-to-hexagonal-grids-in-p5js
+
+https://gorillasun.de/blog/radial-perlin-noise-and-generative-tree-rings
+
+https://gorillasun.de/blog/Simulating-brush-strokes-with-Hooke
+
+https://larsberg.github.io/2019sketchBook/sketches/05_Twist/build/index.html
 
 npm install github:sketchpunklabs/oito --force --no-save
