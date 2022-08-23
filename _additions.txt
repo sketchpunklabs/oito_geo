@@ -40,4 +40,8 @@ https://gorillasun.de/blog/Simulating-brush-strokes-with-Hooke
 
 https://larsberg.github.io/2019sketchBook/sketches/05_Twist/build/index.html
 
+// Ring or a Cylinder with inner hole
+https://github.com/dmnsgn/primitive-geometry/blob/main/src/annulus.js
+https://github.com/dmnsgn/primitive-geometry/blob/main/src/ellipsoid.js
+
 npm install github:sketchpunklabs/oito --force --no-save

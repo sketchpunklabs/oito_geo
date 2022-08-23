@@ -1,0 +1,151 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title></title></head><body>
+<script type="module">
+
+//#region IMPORTS
+import Starter, { THREE }           from '../_lib/Starter.js';
+import Util                         from '../_lib/Util.js';
+import Grid                         from '../../src/primitives/Grid';
+import ShapePointsMesh              from '../_lib/ShapePointsMesh.js';
+import DynLineMesh                  from '../_lib/DynLineMesh.js';
+//import { vec3 }                     from 'oito';
+//#endregion
+
+//#region MAIN
+let App;
+let Debug   = {};
+let Ref     = {
+    mat: new THREE.MeshPhongMaterial( { color:0x009999, flatShading:true } )
+};
+
+window.addEventListener( "load", async _=>{
+    App = new Starter( { webgl2:true, grid:true } );
+    App.setCamera( 0, 20, 6, [0,0.0,0] );
+
+    App.add( ( Debug.pnt = new ShapePointsMesh() ) );
+    App.add( ( Debug.ln  = new DynLineMesh() ) );
+
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    const geo  = stairs( 1, 1, 2, 2 );
+    //const mesh = Util.mesh( geo.vertices, geo.indices, geo.normals, geo.texcoord, null, true );
+    const mesh = Util.mesh( geo.vertices, geo.indices, null, null, Ref.mat, true );
+    App.add( mesh );
+
+    extra( 1, 1, 2, 4, [2,0,0] );
+    extra( 0.3, 2, 3, 8, [4,0,0] );
+
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    App.render();
+});
+
+
+function extra( w, h, d, steps, pos ){
+    const geo  = stairs( w, h, d, steps );
+    //const mesh = Util.mesh( geo.vertices, geo.indices, geo.normals, geo.texcoord, null, true );
+    const mesh = Util.mesh( geo.vertices, geo.indices, null, null, Ref.mat, true );
+    mesh.position.fromArray( pos )
+    App.add( mesh );
+}
+
+//#endregion
+
+function stairs( w=1, h=1, d=2, steps=2 ){
+    const rtn = { 
+        indices     : [],
+        vertices    : [],
+    };
+
+    const zInc  = d / steps;
+    const yInc  = h / steps;
+
+    const l     = [w,0,0];  // Move Left Vector
+
+    const a     = [0,0,0];
+    const aa    = [0,0,0];
+    const b     = [0,0,0];
+    const bb    = [0,0,0];
+    const c     = [0,0,0];
+    const cc    = [0,0,0];
+    const f     = [0,0,0];
+    const ff    = [0,0,0];
+
+    for( let i=0; i < steps; i++ ){
+        // ----------------------------------------------------
+        // Compute the 6 points to create two quad faces that will make
+        // up a single start, top and forward
+        a[1] = h - i * yInc;        // Top Face Starting Vert
+        a[2] = i     * zInc;    
+        
+        b[1] = a[1];                // Top Face End Vert
+        b[2] = (i+1) * zInc;
+
+        c[1] = h - (i+1) * yInc;    // Side face end vert
+        c[2] = b[2];
+
+        vec3_add( a, l, aa );       // Compute the other side
+        vec3_add( b, l, bb );
+        vec3_add( c, l, cc );
+        
+        addQuad( rtn, a, b, bb, aa );   // Top of Step
+        addQuad( rtn, b, c, cc, bb );   // Side of Step
+
+        // ----------------------------------------------------
+        // Create Left Wall
+        fnYFloor( a, 0, f );
+        fnYFloor( b, 0, ff );
+        addQuad( rtn, a, f, ff, b );
+
+        // ----------------------------------------------------
+        // Create Right Wall
+        vec3_add( f, l, f );
+        vec3_add( ff, l, ff );
+        addQuad( rtn, bb, ff, f, aa );
+    }
+
+    // ----------------------------------------------------
+    // Back Face
+    vec3_set( 0, h, 0, b );
+    vec3_add( b, l, bb );
+    fnYFloor( b, 0, a );    // Reuse as a & aa for buttom face
+    fnYFloor( bb, 0, aa );
+    addQuad( rtn, bb, aa, a, b ); 
+
+    // ----------------------------------------------------
+    // Bottom Face
+    vec3_set( 0, 0, d, b );
+    vec3_add( b, l, bb );
+    addQuad( rtn, aa, bb, b, a );
+
+    return rtn;
+}
+
+function addQuad( geo, a, b, c, d ){
+    const i = geo.vertices.length / 3;
+    geo.vertices.push( ...a, ...b, ...c, ...d );
+    geo.indices.push( i, i+1, i+2, i+2, i+3, i);
+}
+
+function fnYFloor( a, y, out ){
+    out[ 0 ] = a[ 0 ];
+    out[ 1 ] = y;
+    out[ 2 ] = a[ 2 ];
+    return;
+}
+
+function vec3_set( x, y, z, out ){
+    out[ 0 ] = x;
+    out[ 1 ] = y;
+    out[ 2 ] = z;
+    return out;
+}
+
+function vec3_add( a, b, out=[0,0,0] ){
+    out[ 0 ] = a[ 0 ] + b[ 0 ];
+    out[ 1 ] = a[ 1 ] + b[ 1 ];
+    out[ 2 ] = a[ 2 ] + b[ 2 ];
+    return out;
+}
+
+</script>
+</body></html>
