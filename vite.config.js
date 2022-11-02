@@ -1,5 +1,6 @@
 import path     from "path";
 import fs       from "fs";
+import { directoryPlugin } from 'vite-plugin-list-directory-contents';
 
 const ignorePaths = [ ".git", "node_modules", "dist", "site" ];
 
@@ -38,9 +39,17 @@ export default ( { command, mode } ) => {
                 rollupOptions   : { input: getHtmlPaths() },
             },
             publicDir   : path.join( __dirname, "examples", "public" ),
+            
+            plugins     : [
+                directoryPlugin( {
+                    baseDir     : __dirname,
+                    filterList  : [ 'node_modules', '.git', '.github', '_store', '_images', 'dist', 'src', '.*' ]
+                })
+            ],
+
             server:{
                 port : 3010, 
-                open : '/test/_000_template.html',
+                open : '/',
             },
         };
 

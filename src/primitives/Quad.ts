@@ -23,10 +23,10 @@ export default class Quad{
         if( isPlane ){  // Quad Facing Up
             rtn.normals.push( 0,1,0,  0,1,0,  0,1,0,  0,1,0 );
             rtn.vertices.push(
-                -wh, 0.0,  hh,
                 -wh, 0.0, -hh,
-                 wh, 0.0, -hh,
-                 wh, 0.0,  hh );
+                -wh, 0.0,  hh,
+                 wh, 0.0,  hh,
+                 wh, 0.0, -hh );
 
         }else{          // Quad Facing Forward
             rtn.normals.push( 0,0,1,  0,0,1,  0,0,1,  0,0,1 );

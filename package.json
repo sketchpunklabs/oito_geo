@@ -35,11 +35,12 @@
     },
 
     "devDependencies": {
-        "@typescript-eslint/eslint-plugin"  : "^5.13.0",
-        "@typescript-eslint/parser"         : "^5.13.0",
-        "eslint"                            : "^8.10.0",
-        "three"                             : "^0.138.2",
-        "typescript"                        : "^4.6.2",
-        "vite"                              : "^2.8.6"
+        "@typescript-eslint/eslint-plugin"    : "^5.13.0",
+        "@typescript-eslint/parser"           : "^5.13.0",
+        "eslint"                              : "^8.10.0",
+        "three"                               : "^0.138.2",
+        "typescript"                          : "^4.6.2",
+        "vite"                                : "^3.0.9",
+        "vite-plugin-list-directory-contents" : "^1.0.1"
     }
 }
