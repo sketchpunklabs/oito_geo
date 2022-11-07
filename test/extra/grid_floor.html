@@ -1,0 +1,180 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title></title></head><body>
+<script type="module">
+
+//#region IMPORTS
+import Starter, { THREE }           from '../_lib/Starter.js';
+// import ShapePointsMesh              from '../_lib/ShapePointsMesh.js';
+// import DynLineMesh                  from '../_lib/DynLineMesh.js';
+import Util                         from '../_lib/Util.js';
+import Quad                         from '../../src/primitives/Quad';
+import Cube                         from '../../src/primitives/Cube';
+//#endregion
+
+//#region MAIN
+let App;
+let Debug   = {};
+let Ref     = {};
+
+window.addEventListener( "load", async _=>{
+    App = new Starter( { webgl2:true, grid:false } );
+    App.setCamera( 0, 20, 8, [0,0.8,0] );
+    // App.add( ( Debug.pnt = new ShapePointsMesh() ) );
+    // App.add( ( Debug.ln  = new DynLineMesh() ) );
+  
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    const sGeo = Quad.get( 10, 10, true );
+    App.add( Util.mesh( sGeo.vertices, sGeo.indices, sGeo.normals, sGeo.texcoord, customMaterial(), false ) );
+
+    const cGeo  = Cube.get( 0.4, 0.4, 0.4 );
+    const mCube = Util.mesh( cGeo.vertices, cGeo.indices, cGeo.normals, cGeo.texcoord, null, false );
+    //mCube.position.set( 1.5, 0.5, -0.5 );
+    App.add( mCube );
+
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    App.render();
+});
+//#endregion
+
+
+//#region LOREM
+
+// HAs extra stuff like fixing mirrored textures
+// https://catlikecoding.com/unity/tutorials/advanced-rendering/triplanar-mapping/
+
+// https://cyangamedev.wordpress.com/2020/01/28/worldspace-uvs-triplanar-mapping/
+
+// https://pbs.twimg.com/tweet_video_thumb/DU4KsufXcAAhpa6.jpg
+
+/*
+void MultitextureTriplanar_float(Texture2D TextureA, Texture2D TextureB, Texture2D TextureC, SamplerState Sampler,
+        float3 Position, float3 Normal, float Tile, float Blend, out float4 Out){
+    float3 Node_UV = Position * Tile;
+    float3 Node_Blend = pow(abs(Normal), Blend);
+    Node_Blend /= dot(Node_Blend, 1.0);
+    float4 Node_X = SAMPLE_TEXTURE2D(TextureA, Sampler, Node_UV.zy);
+    float4 Node_Y = SAMPLE_TEXTURE2D(TextureB, Sampler, Node_UV.xz);
+    float4 Node_Z = SAMPLE_TEXTURE2D(TextureC, Sampler, Node_UV.xy);
+    Out = Node_X * Node_Blend.x + Node_Y * Node_Blend.y + Node_Z * Node_Blend.z;
+}
+*/
+//#endregion
+
+
+function customMaterial( ){
+    const mat = new THREE.RawShaderMaterial({
+        depthTest       : true,
+        transparent 	: true,
+        side            : THREE.DoubleSide,
+        uniforms        : { 
+            baseColor : { type :'vec3', value: new THREE.Color( 0xff0000 ) },
+        },
+
+        extensions      : { 
+            derivatives : true
+        },
+
+        vertexShader    : `#version 300 es
+        in	vec3    position;
+        in  vec3    normal;
+        in	vec2    uv;
+        
+        uniform     mat4    modelMatrix;
+        uniform     mat4    viewMatrix;
+        uniform     mat4    projectionMatrix;
+        out vec3    fragWPos;  // World Space Position
+        out vec3    fragNorm;
+        out vec2    fragUV;
+        
+        void main(){
+            vec4 wPos 	        = modelMatrix * vec4( position, 1.0 );  // World Space
+            vec4 vPos           = viewMatrix * wPos;                    // View Space
+            
+            fragUV              = uv;
+            fragWPos            = wPos.xyz;
+            fragNorm            = ( modelMatrix * vec4( normal, 0.0 ) ).xyz;
+
+            gl_Position			= projectionMatrix * vPos;
+        }`,
+
+        fragmentShader  : `#version 300 es
+        precision mediump float;
+        
+        //uniform vec3 cameraPosition;
+
+        uniform vec3 baseColor;
+
+        in  vec3     fragWPos;
+        in  vec3     fragNorm;
+        in  vec2     fragUV;
+        out vec4     outColor;
+        
+        // #####################################################################
+
+        float pixel_thin( vec2 step_pos ){ //step_pos = pos.xz / step;
+            vec2 grid = abs( fract( step_pos - 0.5 ) - 0.5 ) / fwidth( step_pos );
+            return 1.0 - min( grid.x, grid.y );
+        }
+
+        float grad_thick2( vec2 step_pos, float grad_width ){
+            vec2 pos 	= step_pos - 0.5;	// Move to the Center of Gradient
+            vec2 fpos	= fract( pos );		// Normalize, get 0 -> 1
+            vec2 px		= fwidth( pos );	// Pixel Width of POS
+            vec2 grid	= 
+                smoothstep( 0.5 - grad_width - px,	vec2(0.5) - grad_width,	fpos ) - 
+                smoothstep( vec2(0.5) + grad_width,	0.5 + grad_width + px,	fpos );
+            return max( grid.x, grid.y );
+        }
+
+        float ring( vec2 pos, float min_radius, float max_radius ){
+            float len 	= length( pos );
+            float px	= fwidth( len );
+            return smoothstep( min_radius - px, min_radius + px, len )
+                - smoothstep( max_radius - px, max_radius + px, len );
+        }
+        
+
+        // #####################################################################
+        const float minStep = 0.2;
+
+        void main(){
+            // outColor = vec4( baseColor, 1.0 );
+            
+            vec4 base_color		= vec4( vec3(0.24), 0.0);
+            vec4 grid_min_color	= vec4( vec3(0.26), 1.0);
+            vec4 grid_max_color	= vec4( vec3(0.29), 1.0);
+            vec4 ring_color		= vec4( vec3(0.29), 1.0);
+
+            // Inner Grid
+            float a  = pixel_thin( fragWPos.xz / minStep );
+            outColor = mix( base_color, grid_min_color, a );
+
+            // Outer Grid
+            float b = grad_thick2( fragWPos.xz, 0.01 );
+            outColor = mix( outColor, grid_max_color, b );
+
+            // Color Axis Lines
+            float px_z = fwidth( fragWPos.z );
+            if( abs( fragWPos.z ) <= 0.01 + px_z ) outColor.rgb = vec3(0.58823529411,0.25490196078,0.30588235294); //#96414E
+            if( abs( fragWPos.x ) <= 0.01  ) outColor.rgb = vec3( 0.42745098039,0.58431372549,0.16078431372); //#6D9529
+
+            // Draw Ring
+            float c = ring( fragWPos.xz, 0.40, 0.5 );
+            outColor = mix( outColor, ring_color, c*c*c );
+
+            // Cut hole at origin
+            float ring_len = length( fragWPos );
+            float ring_px = fwidth( ring_len );
+            float d = 1.0 - smoothstep( 0.41 - ring_px, 0.41 + ring_px, ring_len );
+            outColor.a = mix( outColor.a, 0.0, d );
+        }`
+    });
+
+    //mat.lights = true;
+    return mat;
+}
+
+
+</script>
+</body></html>

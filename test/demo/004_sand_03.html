@@ -105,6 +105,17 @@ function CustomMaterial(){
     out vec3 fragNorm;
     out vec3 fragWPos;
 
+    // https://www.desmos.com/calculator/3zhzwbfrxd
+	// Configurable easing Function
+	float expBlend( float t, float p, float s ){
+		float c = ( 2.0 / ( 1.0 - s ) ) - 1.0;
+		if( t > p ){
+			t = 1.0 - t;
+			p = 1.0 - p;
+		}
+		return pow( t, c ) / pow( p, c - 1.0 );
+	}
+    
     /////////////////////////////////////////////////////////////////
 
     const float RNG_HEIGHT = 0.2;
@@ -115,7 +126,11 @@ function CustomMaterial(){
 
         if( pos.y > FLOOR ){
             vec2 grid   = gridCenterCoord( pos.xz );
+            // float n     = perlinNoise( grid * 0.05 ) * 0.5 + 0.5;
+            // n           = expBlend( n, 0.81, 0.18 ) * 2.0 - 1.0;
+            
             float n     = perlinNoise( grid * 0.05 );
+            n           = expBlend( abs( n ), 0.81, 0.18 );
             pos.y      += pow( 1.0 - abs( n ), 2.0 ) * RNG_HEIGHT;
         }
 
