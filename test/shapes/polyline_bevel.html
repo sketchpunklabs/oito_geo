@@ -1,0 +1,270 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title></title></head><body>
+<script type="module">
+
+//#region IMPORTS
+import Starter, { THREE }           from '../_lib/Starter.js';
+import ShapePointsMesh              from '../_lib/ShapePointsMesh.js';
+import DynLineMesh                  from '../_lib/DynLineMesh.js';
+
+// import Util                      from '../_lib/Util.js';
+import Vec3Buffer                   from '../_lib/util/Vec3Buffer.js';
+//#endregion
+
+//#region MAIN
+let App;
+let Debug   = {};
+let Ref     = {};
+
+window.addEventListener( "load", async _=>{
+    App = new Starter( { webgl2:true, grid:true } );
+    App.setCamera( 0, 60, 10, [0,0.0,0] );
+
+    App.add( ( Debug.pnt = new ShapePointsMesh() ) );
+    App.add( ( Debug.ln  = new DynLineMesh() ) );
+
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    const pnts = [
+        -2,0,-2,
+        -2,0,2,
+        2,0,2,
+        4,0,0,
+    ];
+
+    const buf = new Vec3Buffer( pnts );
+    for( let p of buf.iterLine( true ) ){
+        Debug.pnt.add( p.a, 0x00ff00, 5 );
+        // Debug.ln.add( p.a, p.b, 0x00ff00 );
+    }
+
+    polyLine_bevel( pnts );
+    
+    // buf.useBuffer( poly.outer );
+    // for( let p of buf.iterLine( true ) ){
+    //     Debug.pnt.add( p.a, 0xffffff, 4 );
+    //     Debug.ln.add( p.a, p.b, 0xffffff );
+    // }
+
+    // buf.useBuffer( poly.inner );
+    // for( let p of buf.iterLine( true ) ){
+    //     Debug.pnt.add( p.a, 0xffffff, 4 );
+    //     Debug.ln.add( p.a, p.b, 0xffffff );
+    // }
+
+    // polyLine( pnts );
+
+    // const sGeo = Torus.get( 0.5, 16, 0.15, 8 );
+    // App.add( Util.mesh( sGeo.vertices, sGeo.indices, sGeo.normals, sGeo.texcoord, null, true ) );
+  
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    App.render();
+});
+//#endregion
+
+
+// https://gamedev.stackexchange.com/questions/154068/calculating-the-geometry-of-a-thick-3-way-miter-joint
+// https://gist.github.com/kekscom/4194148
+// https://blog.scottlogic.com/2019/11/18/drawing-lines-with-webgl.html
+// https://hypertolosana.wordpress.com/2015/03/10/efficient-webgl-stroking/
+
+function polyLine_bevel( pnts, radius=1.0, isClosedLoop=true ){
+    const cnt  = pnts.length / 3;
+    const iEnd = ( isClosedLoop )? cnt : cnt - 1;
+    const prev = [0,0,0];
+    const cur  = [0,0,0];
+    const n    = [0,0,0];
+
+    const dAry = [];
+    let i;
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Find Direction of each segment
+    vec3_fromBuf( prev, pnts, 0 ); // Get first Point
+
+    for( i=1; i <= iEnd; i++ ){
+        // ---------------------------------------
+        // Get Point
+        vec3_fromBuf( cur, pnts, i % cnt );
+        
+        // ---------------------------------------
+        // Compute Line Direction
+        vec3_sub( n, cur, prev );
+        vec3_norm( n, n );       
+        dAry.push( n.slice() );
+
+        Debug.ln.add( prev, cur, 0x00ff00 );
+        // Debug.ln.add( prev, vec3_scaleAndAdd( [], prev, n, 1 ), 0xff0000  );
+        // ---------------------------------------
+        vec3_copy( prev, cur );
+    }
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    if( isClosedLoop )  vec3_copy( prev, dAry[ dAry.length-1 ] );
+    else                vec3_set( prev, 0, 0, 0 );
+
+    const v      = [0,0,0];
+    const p      = [0,0,0];
+    const miter  = [0,0,0];
+    let scl;
+
+    const outer  = [];
+    const inner  = [];
+
+    for( i=0; i < iEnd; i++ ){
+        vec3_copy( cur, dAry[ i ] );
+        vec3_fromBuf( p, pnts, i );
+
+        // ---------------------------------------
+        // Find Tangent by combinding the line directions
+        // This is like a mid vector between the two vectors
+        vec3_add( miter, cur, prev );
+        vec3_norm( miter, miter );
+
+        Debug.ln.add( p, vec3_scaleAndAdd( [], p, miter, 1 ), 0xffff00  );
+
+        // ---------------------------------------
+        // Get miter direction by doing a 90 deg rotation of tangent
+        vec3_perp_y( miter, miter );
+
+        // Rotate the curreng segment's direction by 90
+        // degrees to get its normal direction
+        vec3_perp_y( n, cur );
+        
+        // ---------------------------------------
+        // Distance for the mighter is size over dot of miter and normal
+        scl = radius / vec3_dot( miter, n );
+
+        console.log( 'scale', 1, scl, radius * 1.5 );
+
+        Debug.ln.add( p, vec3_scaleAndAdd( [], p, miter, scl ), 0x00ffff  );
+        Debug.ln.add( p, vec3_scaleAndAdd( [], p, n, 1 ), 0xff00ff  );
+
+        if( scl > radius * 1.5 ){
+            vec3_scaleAndAdd( v, p, n, radius );  // Current Edge OUter Bevel Point
+            Debug.pnt.add( v, 0xff00ff, 6 );
+            
+            vec3_perp_y( n, prev );               // Normal of previous edge
+            vec3_scaleAndAdd( v, p, n, radius );  // Previous Edge Outer bevel Point
+            Debug.pnt.add( v, 0xff00ff, 6 );
+        }
+
+        vec3_scaleAndAdd( v, p, miter, scl );   // Outer Point
+        outer.push( ...v );
+        Debug.pnt.add( v, 0x00ffff, 3 );
+        
+        vec3_negate( miter, miter );            // Flip Direction
+        vec3_scaleAndAdd( v, p, miter, scl );   // Inner Point
+        inner.push( ...v );
+        Debug.pnt.add( v, 0x00ffff, 3 );
+
+        // ---------------------------------------
+        vec3_copy( prev, cur );
+    }
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Handle last point when not a closed loop
+    if( !isClosedLoop ){
+        // Last Point
+        vec3_fromBuf( p, pnts, iEnd );
+
+        // Get normal of last segment
+        vec3_copy( n, dAry[ dAry.length-1 ] );
+        vec3_perp_y( n, n );
+
+        Debug.ln.add( p, vec3_scaleAndAdd( [], p, n, 1 ), 0x00ffff  );
+        
+        vec3_scaleAndAdd( v, p, n, scl );
+        outer.push( ...v );
+        Debug.pnt.add( v, 0x00ffff, 8 );
+
+
+        vec3_negate( n, n );
+        vec3_scaleAndAdd( v, p, n, scl );
+        inner.push( ...v );
+        Debug.pnt.add( v, 0x00ffff, 8 );
+    }
+    
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    return { outer, inner };
+}
+
+// #region MATHS
+
+function vec3_fromBuf( out, buf, i ){
+    i       *= 3;
+    out[ 0 ] = buf[ i+0 ];
+    out[ 1 ] = buf[ i+1 ];
+    out[ 2 ] = buf[ i+2 ];
+    return out;
+}
+
+function vec3_copy( out, a ){
+    out[0] = a[0];
+    out[1] = a[1];
+    out[2] = a[2];
+    return out;
+}
+
+function vec3_negate( out, a ){
+    out[0] = -a[0];
+    out[1] = -a[1];
+    out[2] = -a[2];
+    return out;
+}
+
+function vec3_set( out, x, y, z ){
+    out[0] = x;
+    out[1] = y;
+    out[2] = z;
+    return out;
+}
+
+function vec3_add( out, a, b ){
+    out[ 0 ] = a[ 0 ] + b[ 0 ];
+    out[ 1 ] = a[ 1 ] + b[ 1 ];
+    out[ 2 ] = a[ 2 ] + b[ 2 ];
+    return out;
+}
+
+function vec3_sub( out, a, b ){
+    out[ 0 ] = a[ 0 ] - b[ 0 ];
+    out[ 1 ] = a[ 1 ] - b[ 1 ];
+    out[ 2 ] = a[ 2 ] - b[ 2 ];
+    return out;
+}
+
+function vec3_norm( out, a ){
+    let mag = Math.sqrt( a[ 0 ]**2 + a[ 1 ]**2 + a[ 2 ]**2 );
+    if( mag != 0 ){
+        mag      = 1 / mag;
+        out[ 0 ] = a[ 0 ] * mag;
+        out[ 1 ] = a[ 1 ] * mag;
+        out[ 2 ] = a[ 2 ] * mag;
+    }
+    return out;
+}
+
+function vec3_dot( a, b ){ return a[ 0 ] * b[ 0 ] + a[ 1 ] * b[ 1 ] + a[ 2 ] * b[ 2 ]; }   
+
+function vec3_perp_y( out, a ){
+    // perpendicular
+    const x  = a[ 0 ];
+    out[ 0 ] = -a[ 2 ];
+    out[ 1 ] =  a[ 1 ];
+    out[ 2 ] =  x;
+    return out;
+}
+
+function vec3_scaleAndAdd( out, add, v, s ){
+    out[ 0 ] = v[ 0 ] * s + add[ 0 ];
+    out[ 1 ] = v[ 1 ] * s + add[ 1 ];
+    out[ 2 ] = v[ 2 ] * s + add[ 2 ];
+    return out;
+}
+
+// #endregion
+
+</script>
+</body></html>
