@@ -56,7 +56,7 @@ export default class Vec3Buffer{
         const buf    = this.flat;
         const cnt    = buf.length / 3;
         const iEnd   = ( !isClosedLoop )? cnt-1 : cnt;
-        const result = { value:{ a, b }, done:false };
+        const result = { value:{ a, b, isLast:false }, done:false };
 
         const next   = ()=>{
             if( i >= iEnd ) result.done = true;
@@ -73,6 +73,8 @@ export default class Vec3Buffer{
                 b[ 2 ] = buf[ jj+2 ];
                 
                 i++;
+
+                result.value.isLast = ( i >= iEnd );
             }
             return result;
         };

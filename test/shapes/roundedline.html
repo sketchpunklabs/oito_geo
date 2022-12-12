@@ -1,0 +1,296 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title></title></head><body>
+<script type="module">
+
+//#region IMPORTS
+import Starter, { THREE }           from '../_lib/Starter.js';
+import ShapePointsMesh              from '../_lib/ShapePointsMesh.js';
+import DynLineMesh                  from '../_lib/DynLineMesh.js';
+
+// import Util                      from '../_lib/Util.js';
+import Vec3Buffer                   from '../_lib/util/Vec3Buffer.js';
+//#endregion
+
+//#region MAIN
+let App;
+let Debug   = {};
+let Ref     = {};
+
+window.addEventListener( "load", async _=>{
+    App = new Starter( { webgl2:true, grid:true } );
+    App.setCamera( 0, 60, 10, [0,0.0,0] );
+
+    App.add( ( Debug.pnt = new ShapePointsMesh() ) );
+    App.add( ( Debug.ln  = new DynLineMesh() ) );
+
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    const pnts = [
+        -2,0,-2,
+        -2,0,2,
+        2,0,2,
+        4,0,1,
+    ];
+
+    const buf = new Vec3Buffer( pnts );
+    for( let p of buf.iterLine( false ) ){
+        Debug.pnt.add( p.a, 0x00ff00, 7 );
+        if( p.isLast ) Debug.pnt.add( p.b, 0x00ff00, 7 );
+        
+        // Debug.ln.add( p.a, p.b, 0x00ff00 );
+    }
+
+    const poly = roundedline( pnts );
+    
+    buf.useBuffer( poly );
+    for( let p of buf.iterLine( true ) ){
+        // p.a[1] = 0.2;
+        // p.b[1] = 0.2;
+        // Debug.pnt.add( p.a, 0x00ffff, 4 );
+        // if( p.isLast ) Debug.pnt.add( p.b, 0x00ffff, 4 );
+        Debug.ln.add( p.a, p.b, 0x00ffff );
+    }
+
+    // buf.useBuffer( poly.inner );
+    // for( let p of buf.iterLine( true ) ){
+    //     Debug.pnt.add( p.a, 0xffffff, 4 );
+    //     Debug.ln.add( p.a, p.b, 0xffffff );
+    // }
+
+    // polyLine( pnts );
+
+    // const sGeo = Torus.get( 0.5, 16, 0.15, 8 );
+    // App.add( Util.mesh( sGeo.vertices, sGeo.indices, sGeo.normals, sGeo.texcoord, null, true ) );
+  
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    App.render();
+});
+//#endregion
+
+
+function roundedline( pnts, radius=0.5, cells=6, isClosedLoop=true ){
+    const cnt   = pnts.length / 3;
+    const iEnd  = ( !isClosedLoop )? cnt - 2 : cnt - 1;
+    const iStar = ( !isClosedLoop )? 0 : -1;
+    const n     = [0,0,0];  // normal
+    const a     = [0,0,0];  // 2 Lines connected by a center point
+    const b     = [0,0,0];
+    const c     = [0,0,0];
+    const ab    = [0,0,0];  // Unit Vector
+    const bc    = [0,0,0];  // Unit Vector
+    const miter = [0,0,0];  // Miter Direction
+    const cent  = [0,0,0];  // Corner Center
+    const ea    = [0,0,0];  // Edge Point A
+    const eb    = [0,0,0];  // Edge Point B
+    
+    const out   = [];
+
+    let len, i, j;
+
+     // First Point
+    if( !isClosedLoop ) out.push( pnts[0], pnts[1], pnts[2] );
+
+    for( i=iStar; i < iEnd; i++ ){
+        console.log( cnt, i, mod( i, cnt ), mod( i+1, cnt ), mod( i+2, cnt ) );
+
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        // Get the 3 points
+        vec3_fromBuf( a, pnts, mod( i+0, cnt ) );
+        vec3_fromBuf( b, pnts, mod( i+1, cnt ) );
+        vec3_fromBuf( c, pnts, mod( i+2, cnt ) );
+
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        vec3_sub( ab, b, a );   // Direction from A > B
+        vec3_norm( ab, ab );
+    
+        vec3_sub( bc, c, b );   // Direction from B > C
+        vec3_norm( bc, bc );
+
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        // Find the miter direction
+        vec3_add( miter, ab, bc );      // Compute the Tangent between the two vectors
+        vec3_norm( miter, miter );      
+        vec3_rot_yn( miter, miter );    // Rotate it to make it the inner miter direction
+
+        // Get anchors that we can use to start the arc
+        vec3_negate( n, ab );                   // Flip normal to it points from b > a
+        vec3_scaleAndAdd( ea, b, n, radius );   // First Anchor
+        vec3_scaleAndAdd( eb, b, bc, radius );  // Second Anchor
+
+        Debug.pnt.add( ea, 0xffffff, 3 );
+        Debug.pnt.add( eb, 0xffffff, 3 );
+
+        // vec3_rot_yn( na, ab );
+        // vec3_rot_yn( nb, bc );
+
+        vec3_rot_yn( n, ab );   // Get the normal of the first edge
+        // Debug.ln.add( a, vec3_scaleAndAdd( [], a, n, 1 ), 0xffff00 );
+        
+        
+        // find the intersection point from anchor+edge normal & miter
+        xzRay_Intersect( ea, n, b, miter, cent );   
+        Debug.pnt.add( cent, 0xffff00, 4 );
+
+
+        Debug.ln.add( cent, ea, 0xffff00 );
+        Debug.ln.add( cent, eb, 0xffff00 );
+
+        // Debug.pnt.add( a, 0xffffff, 8 );
+        Debug.ln.add( b, vec3_scaleAndAdd( [], b, miter, 1 ), 0xffff00 );
+        // 
+        // Debug.ln.add( c, vec3_scaleAndAdd( [], c, nb, 1 ), 0xffff00 );
+
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        // CREATE ARC
+        out.push( ...ea ); // Add First anchor as start of arc
+
+        len = vec3_dist( ea, cent );    // Whats the radius from the center to the arc, this is how long each arc pint needs to be
+        for( j=1; j < cells; j++ ){
+            vec3_lerp( n, ea, eb, j / cells );      // Lerp between the two anchors
+            vec3_sub( n, n, cent );                 // localize from center
+            vec3_norm( n, n );                      // make a unit vector out of it
+            vec3_scaleAndAdd( n, cent, n, len );    // Scale it by radius & move it away from center
+            out.push( ...n );
+            Debug.pnt.add( n, 0xffff00, 4 );
+        }
+        out.push( ...eb ); // Add Second anchor as end of arc
+    }
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Add the last point on the list
+    if( !isClosedLoop ){
+        i = pnts.length-1;
+        out.push( pnts[i-2], pnts[i-1], pnts[i-0] );
+    }
+
+    return out;
+}
+
+// https://stackoverflow.com/questions/2931573/determining-if-two-rays-intersect#:~:text=In%202D%2C%20you%20have%20to,or%20the%20same%20y%2Dcoordinate.
+function xzRay_Intersect( ap, ad, bp, bd, out ){
+    const dx  = bp[0] - ap[0];
+    const dy  = bp[2] - ap[2];
+    const det = bd[0] * ad[2] - bd[2] * ad[0];
+
+    if( det !== 0 ){ // near parallel line will yield noisy results
+        const u = ( dy * bd[0] - dx * bd[2] ) / det;
+        const v = ( dy * ad[0] - dx * ad[2] ) / det;
+        if( u >= 0 && v >= 0 ){
+            //result = as + ad * u;
+            out[ 0 ] = ap[ 0 ] + ad[ 0 ] * u;
+            out[ 1 ] = 0;
+            out[ 2 ] = ap[ 2 ] + ad[ 2 ] * u;
+            return true;
+        }
+    }
+    return false;
+}
+
+
+// #region MATHS
+
+function mod( a, b ){	
+    const v = a % b;
+    return ( v < 0 )? b + v : v;
+}
+
+function vec3_fromBuf( out, buf, i ){
+    i       *= 3;
+    out[ 0 ] = buf[ i+0 ];
+    out[ 1 ] = buf[ i+1 ];
+    out[ 2 ] = buf[ i+2 ];
+    return out;
+}
+
+function vec3_copy( out, a ){
+    out[0] = a[0];
+    out[1] = a[1];
+    out[2] = a[2];
+    return out;
+}
+
+function vec3_negate( out, a ){
+    out[0] = -a[0];
+    out[1] = -a[1];
+    out[2] = -a[2];
+    return out;
+}
+
+function vec3_set( out, x, y, z ){
+    out[0] = x;
+    out[1] = y;
+    out[2] = z;
+    return out;
+}
+
+function vec3_add( out, a, b ){
+    out[ 0 ] = a[ 0 ] + b[ 0 ];
+    out[ 1 ] = a[ 1 ] + b[ 1 ];
+    out[ 2 ] = a[ 2 ] + b[ 2 ];
+    return out;
+}
+
+function vec3_sub( out, a, b ){
+    out[ 0 ] = a[ 0 ] - b[ 0 ];
+    out[ 1 ] = a[ 1 ] - b[ 1 ];
+    out[ 2 ] = a[ 2 ] - b[ 2 ];
+    return out;
+}
+
+function vec3_norm( out, a ){
+    let mag = Math.sqrt( a[ 0 ]**2 + a[ 1 ]**2 + a[ 2 ]**2 );
+    if( mag != 0 ){
+        mag      = 1 / mag;
+        out[ 0 ] = a[ 0 ] * mag;
+        out[ 1 ] = a[ 1 ] * mag;
+        out[ 2 ] = a[ 2 ] * mag;
+    }
+    return out;
+}
+
+function vec3_dot( a, b ){ return a[ 0 ] * b[ 0 ] + a[ 1 ] * b[ 1 ] + a[ 2 ] * b[ 2 ]; }   
+
+function vec3_lerp( out, a, b, t ){
+    const ti = 1 - t;
+    out[ 0 ] = a[ 0 ] * ti + b[ 0 ] * t;
+    out[ 1 ] = a[ 1 ] * ti + b[ 1 ] * t;
+    out[ 2 ] = a[ 2 ] * ti + b[ 2 ] * t;
+    return out;
+}
+
+function vec3_dist( a, b ){
+    return  Math.sqrt( 
+        ( a[0] - b[0] )**2 + 
+        ( a[1] - b[1] )**2 + 
+        ( a[2] - b[2] )**2
+    );
+}
+
+function vec3_rot_yp( out, a ){
+    const x  = a[ 0 ];
+    out[ 0 ] = -a[ 2 ];
+    out[ 1 ] =  a[ 1 ];
+    out[ 2 ] =  x;
+    return out;
+}
+
+function vec3_rot_yn( out, a ){
+    const x  = a[ 0 ];
+    out[ 0 ] = a[ 2 ];
+    out[ 1 ] = a[ 1 ];
+    out[ 2 ] = -x;
+    return out;
+}
+
+function vec3_scaleAndAdd( out, add, v, s ){
+    out[ 0 ] = v[ 0 ] * s + add[ 0 ];
+    out[ 1 ] = v[ 1 ] * s + add[ 1 ];
+    out[ 2 ] = v[ 2 ] * s + add[ 2 ];
+    return out;
+}
+
+// #endregion
+
+</script>
+</body></html>
