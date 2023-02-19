@@ -44,4 +44,33 @@ export default class Util{
             return mesh;
         }
     }
+
+    static meshFromAttribs( attr={}, mat=null ){
+        const bGeo  = new THREE.BufferGeometry();
+        let compLen = 3;
+        let buf;
+
+        for( const [k,v] of Object.entries( attr ) ){
+            if( k === 'index' ) bGeo.setIndex( v );
+            else{
+                switch( k ){
+                    case 'uv': compLen = 2; break;
+                    default  : compLen = 3; break;
+                }
+
+                buf = new THREE.BufferAttribute( 
+                    ( v instanceof Float32Array )? v : new Float32Array( v ), 
+                    compLen
+                );
+                
+                bGeo.setAttribute( k, buf );
+            }
+        }
+
+        //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        mat = mat || new THREE.MeshPhongMaterial( { color:0x009999 } ); // ,side:THREE.DoubleSide
+        const mesh = new THREE.Mesh( bGeo, mat );
+
+        return mesh;
+    }
 }
