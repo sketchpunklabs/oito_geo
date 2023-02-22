@@ -1,0 +1,147 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title></title></head><body>
+<script type="module">
+
+//#region IMPORTS
+import Starter, { THREE }           from '../_lib/Starter.js';
+import Util                         from '../_lib/Util.js';
+import ShapePointsMesh              from '../_lib/ShapePointsMesh.js';
+import DynLineMesh                  from '../_lib/DynLineMesh.js';
+import { Vec3, Quat }               from 'oito';
+//#endregion
+
+//#region MAIN
+let App;
+let Debug   = {};
+let Ref     = {};
+
+window.addEventListener( "load", async _=>{
+    App = new Starter( { webgl2:true, grid:true } );
+    App.setCamera( 0, 20, 10, [0,1.6,0] );
+    // App.onRender = onRender;
+
+    App.add( ( Debug.pnt = new ShapePointsMesh() ) );
+    App.add( ( Debug.ln  = new DynLineMesh() ) );
+
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    const mat  = new THREE.MeshPhongMaterial( { color:0xffff00, flatShading:true } );
+    var geo    = diamondLoopGeometry( 6, 1, 1.4, 1.0, 0.6, 0.65 );
+    var mesh   = Util.mesh( geo.vertices, geo.indices, null, null, mat, false );
+    mesh.position.y += 2.0;
+    App.add( mesh );
+
+    var geo    = diamondLoopGeometry( 3, 1, 1, 1.0, 0.6, 0.65 );
+    var mesh   = Util.mesh( geo.vertices, geo.indices, null, null, mat, false );
+    mesh.position.y += 2.0;
+    mesh.position.x += 4.0;
+    App.add( mesh );
+
+    var geo    = diamondLoopGeometry( 4, 1, 1.3, 1.0, 0.6, 0.65 );
+    var mesh   = Util.mesh( geo.vertices, geo.indices, null, null, mat, false );
+    mesh.position.y += 2.0;
+    mesh.position.x -= 4.0;
+    App.add( mesh );
+
+    Ref.mesh = mesh;
+
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    App.render();
+});
+
+// function onRender( dt, et ){
+//     const t     = Math.sin( et * 0.9 );
+//     // Ref.mesh.rotation.y = Math.PI * 2 * t
+// }
+
+//#endregion
+
+function diamondLoopGeometry( steps=6, xRadius=1, yRadius=1.4, w=1.0, h=0.6, d=0.65 ){
+    const shape = diamondPolygon( w, h, d );
+
+    const vertices = [];
+    const PI2  = Math.PI * 2;
+    const PIH  = Math.PI * 0.5;
+    let v;
+    let t;
+    let rad;
+    let cx;
+    let cy;
+    let cos;
+    let sin;
+
+    for( let i=0; i < steps; i++ ){
+        t   = i / steps;
+        rad = PI2 * t + PIH;
+        cos = Math.cos( rad );
+        sin = Math.sin( rad );
+        cx  = xRadius * cos;
+        cy  = yRadius * sin;
+
+        for( v of shape ){
+            // Z Rotation + Translation
+            vertices.push(
+                ( v[0] * cos - v[1] * sin ) + cx,
+                ( v[0] * sin + v[1] * cos ) + cy,
+                v[2],
+            )
+        };
+    }
+    const indices = gridIndicesLoop( 6, steps-1, true, true );
+
+    return { vertices, indices };
+}
+
+
+function diamondPolygon( w=1, h=0.4, d=0.4 ){
+    const wh   = w * 0.5;
+    const hh   = h * 0.5;
+    const dh   = ( w - d ) * 0.5;
+    const pnts = [
+        [-wh,0,0],   // Left most point
+        [-dh,0,-hh],
+        [dh,0,-hh],
+        [wh,0,0],
+        [dh,0,hh],
+        [-dh,0,hh],
+    ];
+    
+    return pnts;
+}
+
+
+// Creates indices based on a grid pattern, Looping across columns and/or rows
+function gridIndicesLoop( cellColCnt, cellRowCnt, doColLoop=true, doRowLoop=false, revQuad=false ){
+    const cLoop = ( doColLoop )? cellColCnt : cellColCnt - 1;
+    const rLoop = ( doRowLoop )? cellRowCnt + 1 : cellRowCnt;
+    const out   = [];
+    let rr;
+    let cc;
+    let cm;
+    let iRow0;
+    let iRow1;
+    let a, b, c, d;
+
+    for( rr=0; rr < rLoop; rr++ ){
+        // Starting index of Top & Bottom Row
+        iRow0 = cellColCnt * rr;   
+        iRow1 = cellColCnt * ( ( rr + 1 ) % ( cellRowCnt + 1 ) );
+
+        for( cc=0; cc < cLoop; cc++ ){
+            cm = ( cc + 1 ) % cellColCnt;   // Loop indices, ex 0,1,2,3,0
+            a  = iRow0 + cc;                // 4 Points of a quad
+            b  = iRow1 + cc;
+            c  = iRow1 + cm;
+            d  = iRow0 + cm;
+
+            // Turn Quad into two triangles
+            if( !revQuad ) out.push( a,b,c, c,d,a ); // Counter ClockWise
+            else 		   out.push( a,d,c, c,b,a ); // ClockWise
+        }
+    }
+
+    return out;
+}
+
+</script>
+</body></html>
